@@ -14,7 +14,7 @@
                 GetToken();
             }
 
-            _tokens.Add(new(NodeKind.EOF, Lexeme(), _start, _current));
+            _tokens.Add(new(NodeKind.EOF, Lexeme(), GetSpan()));
             return _tokens;
         }
 
@@ -58,7 +58,7 @@
                     {
                         while (char.IsDigit(Current()))
                             ++_current;
-                        _tokens.Add(new Token(NodeKind.Number, Lexeme(), _start, _current));
+                        _tokens.Add(new Token(NodeKind.Number, Lexeme(), GetSpan()));
                     }
                     else
                         AddToken(NodeKind.Bad);
@@ -69,7 +69,7 @@
         private void AddToken(NodeKind kind)
         {
             ++_current;
-            _tokens.Add(new Token(kind, Lexeme(), _start, _current));
+            _tokens.Add(new Token(kind, Lexeme(), GetSpan()));
         }
 
         private bool IsAtEnd() => _current >= _source.Length;
@@ -77,5 +77,7 @@
         private char Current() => IsAtEnd() ? '\0' : _source[_current];
 
         private string Lexeme() => _source[_start.._current];
+
+        private TextSpan GetSpan() => new(_start, _current);
     }
 }

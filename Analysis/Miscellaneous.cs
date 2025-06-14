@@ -33,4 +33,11 @@
             _ => 0
         };
     }
+
+    internal readonly struct TextSpan(int start, int end)
+    {
+        public int Start { get; } = start;
+        public int End { get; } = end;
+        public int Length => End + Start;
+    }
 }
