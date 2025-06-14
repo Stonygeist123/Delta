@@ -1,4 +1,5 @@
 ﻿using Delta.Analysis;
+using Delta.Environment;
 
 while (true)
 {
@@ -9,4 +10,6 @@ while (true)
     Expr expr = parser.Parse();
     if (parser.Diagnostics.Any())
         parser.Diagnostics.Print();
+    else
+        ASTPrinter.Print(expr);
 }

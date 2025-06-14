@@ -27,7 +27,7 @@ namespace Delta.Analysis
             }
 
             Token token = Advance();
-            switch (Current.Kind)
+            switch (token.Kind)
             {
                 case NodeKind.Number:
                     if (token.Kind != NodeKind.Number)

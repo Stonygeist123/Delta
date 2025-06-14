@@ -9,12 +9,6 @@
         public override NodeKind Kind => NodeKind.LiteralExpr;
 
         public Token Token => token;
-
-        public object Value => token.Kind switch
-        {
-            NodeKind.Number => double.Parse(token.Lexeme),
-            _ => throw new Exception($"Unexpected token kind: {token.Kind} for literal expression.")
-        };
     }
 
     internal class BinaryExpr(Expr left, Token op, Expr right) : Expr
