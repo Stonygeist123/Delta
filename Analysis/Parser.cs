@@ -4,7 +4,7 @@
     {
         private int _current = 0;
 
-        public Expr Parse(int parentPrecedence = 0) => CheckExtension(Current.Kind switch
+        public Expr Parse(int parentPrecedence = 0) => IsAtEnd() ? new ErrorExpr(_tokens.Last()) : CheckExtension(Current.Kind switch
         {
             NodeKind.Number => ParseLiteral(),
             NodeKind.Plus or NodeKind.Minus => ParseUnary(),
@@ -70,6 +70,6 @@
 
         private Token Advance() => _tokens[_current++];
 
-        private bool IsAtEnd() => _current >= _tokens.Count;
+        private bool IsAtEnd() => _current >= _tokens.Count || Current.Kind == NodeKind.EOF;
     }
 }

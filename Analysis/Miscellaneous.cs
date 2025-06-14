@@ -9,7 +9,7 @@
         Number,
 
         // Others
-        LParen, RParen, Bad,
+        LParen, RParen, Bad, EOF,
 
         // Exprs
         LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, ErrorExpr,

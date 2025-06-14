@@ -1,4 +1,5 @@
 ﻿using Delta.Analysis;
+using Delta.Diagnostics;
 
 while (true)
 {
@@ -11,4 +12,8 @@ while (true)
     Expr expr = parser.Parse();
     if (expr is ErrorExpr)
         Console.WriteLine("Error parsing expression.");
+
+    // 1 - 12
+    Diagnostic d = new("Parsed successfully.", text, 4, 2);
+    d.Print();
 }

@@ -14,6 +14,7 @@
                 GetToken();
             }
 
+            _tokens.Add(new(NodeKind.EOF, Lexeme(), _start, _current));
             return _tokens;
         }
 
