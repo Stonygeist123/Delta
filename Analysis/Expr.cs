@@ -40,9 +40,9 @@
         public Token RParen { get; } = rParen;
     }
 
-    internal class ErrorExpr(Token token) : Expr
+    internal class ErrorExpr(params List<Node> nodes) : Expr
     {
         public override NodeKind Kind => NodeKind.ErrorExpr;
-        public Token Token { get; } = token;
+        public List<Node> Nodes { get; } = nodes;
     }
 }

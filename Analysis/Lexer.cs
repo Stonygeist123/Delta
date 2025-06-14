@@ -1,10 +1,14 @@
-﻿namespace Delta.Analysis
+﻿using Delta.Diagnostics;
+
+namespace Delta.Analysis
 {
-    internal class Lexer(string _source)
+    internal class Lexer(string _src)
     {
         private int _current = 0;
         private int _start = 0;
         private readonly List<Token> _tokens = [];
+        private readonly DiagnosticBag _diagnostics = [];
+        public DiagnosticBag Diagnostics => _diagnostics;
 
         public List<Token> Lex()
         {
@@ -61,7 +65,10 @@
                         _tokens.Add(new Token(NodeKind.Number, Lexeme(), GetSpan()));
                     }
                     else
+                    {
                         AddToken(NodeKind.Bad);
+                        _diagnostics.Add(_src, $"Unexpected character.", GetSpan());
+                    }
                     break;
             }
         }
@@ -72,11 +79,11 @@
             _tokens.Add(new Token(kind, Lexeme(), GetSpan()));
         }
 
-        private bool IsAtEnd() => _current >= _source.Length;
+        private bool IsAtEnd() => _current >= _src.Length;
 
-        private char Current() => IsAtEnd() ? '\0' : _source[_current];
+        private char Current() => IsAtEnd() ? '\0' : _src[_current];
 
-        private string Lexeme() => _source[_start.._current];
+        private string Lexeme() => _src[_start.._current];
 
         private TextSpan GetSpan() => new(_start, _current);
     }

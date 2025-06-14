@@ -1,46 +1,84 @@
-﻿namespace Delta.Analysis
+﻿using Delta.Diagnostics;
+
+namespace Delta.Analysis
 {
-    internal class Parser(List<Token> _tokens)
+    internal class Parser
     {
+        private readonly string _src;
         private int _current = 0;
+        private readonly DiagnosticBag _diagnostics = [];
+        private readonly List<Token> _tokens = [];
+        public DiagnosticBag Diagnostics => _diagnostics;
 
-        public Expr Parse(int parentPrecedence = 0) => IsAtEnd() ? new ErrorExpr(_tokens.Last()) : CheckExtension(Current.Kind switch
+        public Parser(string src)
         {
-            NodeKind.Number => ParseLiteral(),
-            NodeKind.Plus or NodeKind.Minus => ParseUnary(),
-            NodeKind.LParen => ParseGrouping(),
-            _ => new ErrorExpr(Advance()),
-        }, parentPrecedence);
-
-        private Expr ParseLiteral()
-        {
-            if (Current.Kind != NodeKind.Number)
-                return new ErrorExpr(Advance());
-            return new LiteralExpr(Advance());
+            _src = src;
+            Lexer lexer = new(_src);
+            _tokens = lexer.Lex();
         }
 
-        private Expr ParseUnary()
+        public Expr Parse(int parentPrecedence = 0)
         {
-            if (Current.Kind != NodeKind.Plus && Current.Kind != NodeKind.Minus)
-                return new ErrorExpr(Advance());
+            Expr expr;
+            if (IsAtEnd())
+            {
+                _diagnostics.Add(_src, "Unexpected expr.", Current.Span);
+                return new ErrorExpr(_tokens.Last());
+            }
 
-            Token op = Advance();
-            Expr operand = Parse(Utility.GetUnOpPrecedence(op.Kind));
-            return new UnaryExpr(op, operand);
-        }
+            Token token = Advance();
+            switch (Current.Kind)
+            {
+                case NodeKind.Number:
+                    if (token.Kind != NodeKind.Number)
+                    {
+                        _diagnostics.Add(_src, "Expected a literal.", token.Span);
+                        expr = new ErrorExpr(token);
+                        break;
+                    }
 
-        private Expr ParseGrouping()
-        {
-            Token lParen = Advance();
-            if (lParen.Kind != NodeKind.LParen)
-                return new ErrorExpr(lParen);
+                    expr = new LiteralExpr(token);
+                    break;
 
-            Expr expr = Parse();
-            Token rParen = Advance();
-            if (rParen.Kind != NodeKind.RParen)
-                return new ErrorExpr(rParen);
+                case NodeKind.Plus or NodeKind.Minus:
+                    if (token.Kind != NodeKind.Plus && token.Kind != NodeKind.Minus)
+                    {
+                        _diagnostics.Add(_src, "Expected an unary operator.", token.Span);
+                        expr = new ErrorExpr(token);
+                        break;
+                    }
 
-            return new GroupingExpr(lParen, expr, rParen);
+                    Expr operand = Parse(Utility.GetUnOpPrecedence(token.Kind));
+                    expr = new UnaryExpr(token, operand);
+                    break;
+
+                case NodeKind.LParen:
+                    Token lParen = Advance();
+                    if (lParen.Kind != NodeKind.LParen)
+                    {
+                        _diagnostics.Add(_src, "Expected '('.", lParen.Span);
+                        expr = new ErrorExpr(lParen);
+                        break;
+                    }
+
+                    expr = Parse();
+                    Token rParen = Advance();
+                    if (rParen.Kind != NodeKind.RParen)
+                    {
+                        _diagnostics.Add(_src, "Expected ')'.", lParen.Span);
+                        expr = new ErrorExpr(lParen, expr, rParen);
+                    }
+
+                    expr = new GroupingExpr(lParen, expr, rParen);
+                    break;
+
+                default:
+                    _diagnostics.Add(_src, "Unexpected expr.", Current.Span);
+                    expr = new ErrorExpr(token);
+                    break;
+            };
+
+            return CheckExtension(expr, parentPrecedence);
         }
 
         private Expr CheckExtension(Expr expr, int parentPrecedence = 0)

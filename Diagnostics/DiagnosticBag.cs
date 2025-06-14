@@ -17,7 +17,7 @@ namespace Delta.Diagnostics
 
         public void AddAll(IEnumerable<Diagnostic> diagnostics) => _diagnostics.AddRange(diagnostics);
 
-        public void PrintAll() => _diagnostics.ForEach(d =>
+        public void Print() => _diagnostics.ForEach(d =>
         {
             d.Print();
             Console.WriteLine();

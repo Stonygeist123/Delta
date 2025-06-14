@@ -5,10 +5,8 @@ while (true)
     string? text = Console.ReadLine();
     if (string.IsNullOrEmpty(text))
         continue;
-    Lexer lexer = new(text);
-    List<Token> tokens = lexer.Lex();
-    Parser parser = new(tokens);
+    Parser parser = new(text);
     Expr expr = parser.Parse();
-    if (expr is ErrorExpr)
-        Console.WriteLine("Error parsing expression.");
+    if (parser.Diagnostics.Any())
+        parser.Diagnostics.Print();
 }
