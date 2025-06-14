@@ -1,7 +1,8 @@
 ﻿using Delta.Analysis;
 using Delta.Analysis.Nodes;
-using Delta.Environment;
+using Delta.Interpreter;
 
+Interpreter interpreter = new();
 while (true)
 {
     ConsoleColor defaultColor = Console.ForegroundColor;
@@ -17,9 +18,18 @@ while (true)
     if (parser.Diagnostics.Any())
         parser.Diagnostics.Print();
     else
-        foreach (Stmt stmt in stmts)
-            ASTPrinter.Print(stmt);
-    //Console.WriteLine(Interpreter.Execute(expr));
+    {
+        //foreach (Stmt stmt in stmts)
+        //    ASTPrinter.Print(stmt);
+        if (stmts.Count == 1 && stmts.First() is ExprStmt exprStmt)
+        {
+            object? result = interpreter.ExecuteExpr(exprStmt.Expr);
+            if (result is not null)
+                Console.WriteLine(result);
+        }
+        else
+            stmts.ForEach(interpreter.Execute);
+    }
 
     Console.WriteLine();
     Console.WriteLine();

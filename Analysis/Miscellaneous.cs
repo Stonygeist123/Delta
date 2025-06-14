@@ -19,7 +19,7 @@
         Bad, EOF,
 
         // Exprs
-        LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, VarExpr, ErrorExpr,
+        LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, NameExpr, ErrorExpr,
 
         // Stmts
         ExprStmt, VarStmt, ErrorStmt

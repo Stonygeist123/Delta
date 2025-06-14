@@ -34,9 +34,9 @@
         public Token RParen { get; } = rParen;
     }
 
-    internal class VarExpr(Token name) : Expr
+    internal class NameExpr(Token name) : Expr
     {
-        public override NodeKind Kind => NodeKind.VarExpr;
+        public override NodeKind Kind => NodeKind.NameExpr;
         public Token Name { get; } = name;
     }
 

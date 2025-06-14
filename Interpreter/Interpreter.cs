@@ -5,7 +5,31 @@ namespace Delta.Interpreter
 {
     internal class Interpreter()
     {
-        public static object? Execute(Expr expr)
+        private readonly Dictionary<string, object?> _symbolTable = [];
+
+        public void Execute(Stmt stmt)
+        {
+            switch (stmt)
+            {
+                case ExprStmt exprStmt:
+                    ExecuteExpr(exprStmt.Expr);
+                    break;
+
+                case VarStmt varStmt:
+                    string name = varStmt.Name.Lexeme;
+                    if (_symbolTable.ContainsKey(name))
+                        throw new Exception($"Variable '{name}' already exists.");
+
+                    object? value = ExecuteExpr(varStmt.Value) ?? throw new Exception($"Variable '{name}' has no value.");
+                    _symbolTable.Add(name, value);
+                    break;
+
+                default:
+                    throw new Exception($"Unsupported statement.");
+            }
+        }
+
+        public object? ExecuteExpr(Expr expr)
         {
             switch (expr)
             {
@@ -13,8 +37,8 @@ namespace Delta.Interpreter
                     return double.Parse(literalExpr.Token.Lexeme);
 
                 case BinaryExpr binaryExpr:
-                    object? left = Execute(binaryExpr.Left);
-                    object? right = Execute(binaryExpr.Right);
+                    object? left = ExecuteExpr(binaryExpr.Left);
+                    object? right = ExecuteExpr(binaryExpr.Right);
                     if (left is null || right is null)
                         return null;
 
@@ -28,7 +52,7 @@ namespace Delta.Interpreter
                     };
 
                 case UnaryExpr unaryExpr:
-                    object? operand = Execute(unaryExpr.Operand);
+                    object? operand = ExecuteExpr(unaryExpr.Operand);
                     if (operand is null)
                         return null;
                     return unaryExpr.Op.Kind switch
@@ -39,7 +63,15 @@ namespace Delta.Interpreter
                     };
 
                 case GroupingExpr groupingExpr:
-                    return Execute(groupingExpr.Expression);
+                    return ExecuteExpr(groupingExpr.Expression);
+
+                case NameExpr nameExpr:
+                    string name = nameExpr.Name.Lexeme;
+                    if (!_symbolTable.TryGetValue(name, out object? value))
+                        throw new Exception($"Variable '{name}' is not defined.");
+                    if (value is null)
+                        throw new Exception($"Variable '{name}' has no value.");
+                    return value;
 
                 default:
                     return null;

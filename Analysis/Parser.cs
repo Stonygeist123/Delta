@@ -75,7 +75,7 @@ namespace Delta.Analysis
                     break;
 
                 case NodeKind.Identifier:
-                    expr = new VarExpr(firstToken);
+                    expr = new NameExpr(firstToken);
                     break;
 
                 case NodeKind.Plus or NodeKind.Minus:
