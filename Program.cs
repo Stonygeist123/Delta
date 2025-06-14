@@ -1,5 +1,5 @@
 ﻿using Delta.Analysis;
-using Delta.Environment;
+using Delta.Interpreter;
 
 while (true)
 {
@@ -16,7 +16,7 @@ while (true)
     if (parser.Diagnostics.Any())
         parser.Diagnostics.Print();
     else
-        ASTPrinter.Print(expr);
+        Console.WriteLine(Interpreter.Execute(expr));
 
     Console.WriteLine();
     Console.WriteLine();
