@@ -26,38 +26,37 @@ namespace Delta.Analysis
                 return new ErrorExpr(_tokens.Last());
             }
 
-            Token token = Advance();
-            switch (token.Kind)
+            Token firstToken = Advance();
+            switch (firstToken.Kind)
             {
                 case NodeKind.Number:
-                    if (token.Kind != NodeKind.Number)
+                    if (firstToken.Kind != NodeKind.Number)
                     {
-                        _diagnostics.Add(_src, "Expected a literal.", token.Span);
-                        expr = new ErrorExpr(token);
+                        _diagnostics.Add(_src, "Expected a literal.", firstToken.Span);
+                        expr = new ErrorExpr(firstToken);
                         break;
                     }
 
-                    expr = new LiteralExpr(token);
+                    expr = new LiteralExpr(firstToken);
                     break;
 
                 case NodeKind.Plus or NodeKind.Minus:
-                    if (token.Kind != NodeKind.Plus && token.Kind != NodeKind.Minus)
+                    if (firstToken.Kind != NodeKind.Plus && firstToken.Kind != NodeKind.Minus)
                     {
-                        _diagnostics.Add(_src, "Expected an unary operator.", token.Span);
-                        expr = new ErrorExpr(token);
+                        _diagnostics.Add(_src, "Expected an unary operator.", firstToken.Span);
+                        expr = new ErrorExpr(firstToken);
                         break;
                     }
 
-                    Expr operand = Parse(Utility.GetUnOpPrecedence(token.Kind));
-                    expr = new UnaryExpr(token, operand);
+                    Expr operand = Parse(Utility.GetUnOpPrecedence(firstToken.Kind));
+                    expr = new UnaryExpr(firstToken, operand);
                     break;
 
                 case NodeKind.LParen:
-                    Token lParen = Advance();
-                    if (lParen.Kind != NodeKind.LParen)
+                    if (firstToken.Kind != NodeKind.LParen)
                     {
-                        _diagnostics.Add(_src, "Expected '('.", lParen.Span);
-                        expr = new ErrorExpr(lParen);
+                        _diagnostics.Add(_src, "Expected '('.", firstToken.Span);
+                        expr = new ErrorExpr(firstToken);
                         break;
                     }
 
@@ -65,16 +64,16 @@ namespace Delta.Analysis
                     Token rParen = Advance();
                     if (rParen.Kind != NodeKind.RParen)
                     {
-                        _diagnostics.Add(_src, "Expected ')'.", lParen.Span);
-                        expr = new ErrorExpr(lParen, expr, rParen);
+                        _diagnostics.Add(_src, "Expected ')'.", rParen.Span);
+                        expr = new ErrorExpr(firstToken, expr, rParen);
                     }
 
-                    expr = new GroupingExpr(lParen, expr, rParen);
+                    expr = new GroupingExpr(firstToken, expr, rParen);
                     break;
 
                 default:
-                    _diagnostics.Add(_src, "Unexpected expr.", Current.Span);
-                    expr = new ErrorExpr(token);
+                    _diagnostics.Add(_src, "Unexpected expr.", firstToken.Span);
+                    expr = new ErrorExpr(firstToken);
                     break;
             };
 
@@ -95,7 +94,10 @@ namespace Delta.Analysis
                     ++_current;
                     expr = new BinaryExpr(expr, token, Parse(precedence));
                     if (!IsAtEnd())
-                        precedence = Utility.GetBinOpPrecedence(Current.Kind);
+                    {
+                        token = Current;
+                        precedence = Utility.GetBinOpPrecedence(token.Kind);
+                    }
                 }
 
                 return expr;
