@@ -17,8 +17,6 @@ namespace Delta.Diagnostics
 
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(new string(' ', Span.Start) + new string('^', Span.Length));
-
-            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine(new string(' ', Span.Start) + $"[Error] {Message}");
 
             Console.ForegroundColor = originalColor;

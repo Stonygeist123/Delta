@@ -15,6 +15,7 @@ namespace Delta.Analysis
             _src = src;
             Lexer lexer = new(_src);
             _tokens = lexer.Lex();
+            _diagnostics.AddAll(lexer.Diagnostics);
         }
 
         public Expr Parse(int parentPrecedence = 0)
