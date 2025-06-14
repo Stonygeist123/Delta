@@ -2,7 +2,7 @@
 
 namespace Delta.Diagnostics
 {
-    internal class Diagnostic(string message, string text, TextSpan span)
+    internal class Diagnostic(string text, string message, TextSpan span)
     {
         public string Message { get; } = message;
         public TextSpan Span { get; } = span;
