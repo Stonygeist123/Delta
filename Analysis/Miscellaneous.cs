@@ -38,6 +38,6 @@
     {
         public int Start { get; } = start;
         public int End { get; } = end;
-        public int Length => End + Start;
+        public int Length => End - Start;
     }
 }

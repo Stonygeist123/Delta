@@ -18,7 +18,7 @@ namespace Delta.Analysis
                 GetToken();
             }
 
-            _tokens.Add(new(NodeKind.EOF, Lexeme(), GetSpan()));
+            _tokens.Add(new(NodeKind.EOF, Lexeme(), new(_current, _current + 1)));
             return _tokens;
         }
 
