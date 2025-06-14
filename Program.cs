@@ -1,5 +1,6 @@
 ﻿using Delta.Analysis;
-using Delta.Interpreter;
+using Delta.Analysis.Nodes;
+using Delta.Environment;
 
 while (true)
 {
@@ -12,11 +13,13 @@ while (true)
     if (string.IsNullOrEmpty(text))
         continue;
     Parser parser = new(text);
-    Expr expr = parser.Parse();
+    List<Stmt> stmts = parser.Parse();
     if (parser.Diagnostics.Any())
         parser.Diagnostics.Print();
     else
-        Console.WriteLine(Interpreter.Execute(expr));
+        foreach (Stmt stmt in stmts)
+            ASTPrinter.Print(stmt);
+    //Console.WriteLine(Interpreter.Execute(expr));
 
     Console.WriteLine();
     Console.WriteLine();

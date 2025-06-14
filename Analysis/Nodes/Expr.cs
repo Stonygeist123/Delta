@@ -1,4 +1,4 @@
-﻿namespace Delta.Analysis
+﻿namespace Delta.Analysis.Nodes
 {
     internal abstract class Expr : Node
     {
@@ -32,6 +32,12 @@
         public Token LParen { get; } = lParen;
         public Expr Expression { get; } = expression;
         public Token RParen { get; } = rParen;
+    }
+
+    internal class VarExpr(Token name) : Expr
+    {
+        public override NodeKind Kind => NodeKind.VarExpr;
+        public Token Name { get; } = name;
     }
 
     internal class ErrorExpr(params List<Node> nodes) : Expr

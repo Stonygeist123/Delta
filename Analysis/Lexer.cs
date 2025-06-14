@@ -1,4 +1,5 @@
-﻿using Delta.Diagnostics;
+﻿using Delta.Analysis.Nodes;
+using Delta.Diagnostics;
 
 namespace Delta.Analysis
 {
@@ -9,6 +10,11 @@ namespace Delta.Analysis
         private readonly List<Token> _tokens = [];
         private readonly DiagnosticBag _diagnostics = [];
         public DiagnosticBag Diagnostics => _diagnostics;
+
+        private Dictionary<string, NodeKind> _keywords = new()
+        {
+            { "var", NodeKind.Var }
+        };
 
         public List<Token> Lex()
         {
@@ -51,6 +57,10 @@ namespace Delta.Analysis
                     AddToken(NodeKind.RParen);
                     break;
 
+                case '=':
+                    AddToken(NodeKind.Eq);
+                    break;
+
                 case ' ':
                 case '\t':
                 case '\n':
@@ -63,6 +73,13 @@ namespace Delta.Analysis
                         while (char.IsDigit(Current()))
                             ++_current;
                         _tokens.Add(new Token(NodeKind.Number, Lexeme(), GetSpan()));
+                    }
+                    else if (char.IsLetter(c))
+                    {
+                        while (char.IsLetterOrDigit(Current()))
+                            ++_current;
+                        string lexeme = Lexeme();
+                        _tokens.Add(new Token(_keywords.TryGetValue(lexeme, out NodeKind kind) ? kind : NodeKind.Identifier, lexeme, GetSpan()));
                     }
                     else
                     {

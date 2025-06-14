@@ -1,4 +1,5 @@
-﻿using Delta.Diagnostics;
+﻿using Delta.Analysis.Nodes;
+using Delta.Diagnostics;
 
 namespace Delta.Analysis
 {
@@ -18,12 +19,51 @@ namespace Delta.Analysis
             _diagnostics.AddAll(lexer.Diagnostics);
         }
 
-        public Expr Parse(int parentPrecedence = 0)
+        public List<Stmt> Parse()
+        {
+            List<Stmt> stmts = [];
+            while (!IsAtEnd())
+            {
+                switch (Current.Kind)
+                {
+                    case NodeKind.Var:
+                        Token varToken = Advance();
+                        Token name = Advance();
+                        if (name.Kind != NodeKind.Identifier)
+                        {
+                            _diagnostics.Add(_src, "Expected an identifier.", name.Span);
+                            stmts.Add(new ErrorStmt(varToken, name));
+                            break;
+                        }
+
+                        Token eq = Advance();
+                        if (eq.Kind != NodeKind.Eq)
+                        {
+                            _diagnostics.Add(_src, "Expected '='.", eq.Span);
+                            stmts.Add(new ErrorStmt(varToken, name, eq));
+                            break;
+                        }
+
+                        Expr value = ParseExpr();
+                        stmts.Add(new VarStmt(varToken, name, eq, value));
+                        break;
+
+                    default:
+                        Expr expr = ParseExpr();
+                        stmts.Add(new ExprStmt(expr));
+                        break;
+                }
+            }
+
+            return stmts;
+        }
+
+        public Expr ParseExpr(int parentPrecedence = 0)
         {
             Expr expr;
             if (IsAtEnd())
             {
-                _diagnostics.Add(_src, "Unexpected expr.", Current.Span);
+                _diagnostics.Add(_src, "Expected expression.", Current.Span);
                 return new ErrorExpr(_tokens.Last());
             }
 
@@ -31,37 +71,20 @@ namespace Delta.Analysis
             switch (firstToken.Kind)
             {
                 case NodeKind.Number:
-                    if (firstToken.Kind != NodeKind.Number)
-                    {
-                        _diagnostics.Add(_src, "Expected a literal.", firstToken.Span);
-                        expr = new ErrorExpr(firstToken);
-                        break;
-                    }
-
                     expr = new LiteralExpr(firstToken);
                     break;
 
-                case NodeKind.Plus or NodeKind.Minus:
-                    if (firstToken.Kind != NodeKind.Plus && firstToken.Kind != NodeKind.Minus)
-                    {
-                        _diagnostics.Add(_src, "Expected an unary operator.", firstToken.Span);
-                        expr = new ErrorExpr(firstToken);
-                        break;
-                    }
+                case NodeKind.Identifier:
+                    expr = new VarExpr(firstToken);
+                    break;
 
-                    Expr operand = Parse(Utility.GetUnOpPrecedence(firstToken.Kind));
+                case NodeKind.Plus or NodeKind.Minus:
+                    Expr operand = ParseExpr(Utility.GetUnOpPrecedence(firstToken.Kind));
                     expr = new UnaryExpr(firstToken, operand);
                     break;
 
                 case NodeKind.LParen:
-                    if (firstToken.Kind != NodeKind.LParen)
-                    {
-                        _diagnostics.Add(_src, "Expected '('.", firstToken.Span);
-                        expr = new ErrorExpr(firstToken);
-                        break;
-                    }
-
-                    expr = Parse();
+                    expr = ParseExpr();
                     Token rParen = Advance();
                     if (rParen.Kind != NodeKind.RParen)
                     {
@@ -73,7 +96,7 @@ namespace Delta.Analysis
                     break;
 
                 default:
-                    _diagnostics.Add(_src, "Unexpected expr.", firstToken.Span);
+                    _diagnostics.Add(_src, "Expected expression.", firstToken.Span);
                     expr = new ErrorExpr(firstToken);
                     break;
             };
@@ -93,7 +116,7 @@ namespace Delta.Analysis
                 while (precedence > parentPrecedence && !IsAtEnd())
                 {
                     ++_current;
-                    expr = new BinaryExpr(expr, token, Parse(precedence));
+                    expr = new BinaryExpr(expr, token, ParseExpr(precedence));
                     if (!IsAtEnd())
                     {
                         token = Current;

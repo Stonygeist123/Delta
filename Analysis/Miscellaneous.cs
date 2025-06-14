@@ -6,13 +6,23 @@
         Plus, Minus, Slash, Star,
 
         // Literals
-        Number,
+        Number, Identifier,
+
+        // Keywords
+        Var,
 
         // Others
-        LParen, RParen, Bad, EOF,
+        LParen, RParen,
+
+        Eq,
+
+        Bad, EOF,
 
         // Exprs
-        LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, ErrorExpr,
+        LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, VarExpr, ErrorExpr,
+
+        // Stmts
+        ExprStmt, VarStmt, ErrorStmt
     }
 
     internal static class Utility

@@ -1,4 +1,5 @@
 ﻿using Delta.Analysis;
+using Delta.Analysis.Nodes;
 
 namespace Delta.Interpreter
 {

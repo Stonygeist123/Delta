@@ -1,4 +1,4 @@
-﻿namespace Delta.Analysis
+﻿namespace Delta.Analysis.Nodes
 {
     internal class Token(NodeKind kind, string lexeme, TextSpan span) : Node
     {

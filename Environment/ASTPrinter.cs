@@ -1,4 +1,5 @@
 ﻿using Delta.Analysis;
+using Delta.Analysis.Nodes;
 using System.Collections;
 using System.Reflection;
 
@@ -47,11 +48,13 @@ namespace Delta.Environment
                 object? value = prop.GetValue(node);
                 WriteIndent();
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.Write($"- {prop.Name}: ");
+                if (node is not LiteralExpr)
+                    Console.Write($"- {prop.Name}: ");
 
                 if (value is Node childNode)
                 {
-                    Console.WriteLine();
+                    if (node is not LiteralExpr)
+                        Console.WriteLine();
                     Print(childNode, indent + 1);
                 }
                 else if (value is IEnumerable enumerable && value is not string)
