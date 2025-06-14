@@ -1,4 +1,4 @@
-﻿namespace Delta.Analysis
+﻿namespace Delta.Analysis.Nodes
 {
     internal abstract class Node
     {

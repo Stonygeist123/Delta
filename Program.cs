@@ -1,5 +1,8 @@
 ﻿using Delta.Analysis;
 using Delta.Analysis.Nodes;
+using Delta.Binding;
+using Delta.Binding.BoundNodes;
+using Delta.Environment;
 using Delta.Interpreter;
 
 Interpreter interpreter = new();
@@ -19,16 +22,9 @@ while (true)
         parser.Diagnostics.Print();
     else
     {
-        //foreach (Stmt stmt in stmts)
-        //    ASTPrinter.Print(stmt);
-        if (stmts.Count == 1 && stmts.First() is ExprStmt exprStmt)
-        {
-            object? result = interpreter.ExecuteExpr(exprStmt.Expr);
-            if (result is not null)
-                Console.WriteLine(result);
-        }
-        else
-            stmts.ForEach(interpreter.Execute);
+        Binder binder = new(text);
+        List<BoundStmt> boundStmts = binder.Bind(stmts);
+        BoundASTPrinter.PrintAll(boundStmts);
     }
 
     Console.WriteLine();

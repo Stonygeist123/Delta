@@ -7,4 +7,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Remove="Binding\Binder.cs~RFbc4c827.TMP" />
+  </ItemGroup>
+
 </Project>
