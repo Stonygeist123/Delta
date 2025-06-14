@@ -1,8 +1,7 @@
 ﻿namespace Delta.Analysis
 {
-    internal class Lexer(string source)
+    internal class Lexer(string _source)
     {
-        private readonly string _source = source;
         private int _current = 0;
         private int _start = 0;
         private readonly List<Token> _tokens = [];
@@ -24,38 +23,51 @@
             switch (c)
             {
                 case '+':
-                    AddToken(TokenKind.Plus);
+                    AddToken(NodeKind.Plus);
                     break;
 
                 case '-':
-                    AddToken(TokenKind.Minus);
+                    AddToken(NodeKind.Minus);
                     break;
 
                 case '*':
-                    AddToken(TokenKind.Star);
+                    AddToken(NodeKind.Star);
                     break;
 
                 case '/':
-                    AddToken(TokenKind.Slash);
+                    AddToken(NodeKind.Slash);
                     break;
+
+                case '(':
+                    AddToken(NodeKind.LParen);
+                    break;
+
+                case ')':
+                    AddToken(NodeKind.RParen);
+                    break;
+
+                case ' ':
+                case '\t':
+                case '\n':
+                    ++_current;
+                    return;
 
                 default:
                     if (char.IsDigit(c))
                     {
                         while (char.IsDigit(Current()))
                             ++_current;
-                        AddToken(TokenKind.Number, false);
+                        _tokens.Add(new Token(NodeKind.Number, Lexeme(), _start, _current));
                     }
                     else
-                        AddToken(TokenKind.Bad);
+                        AddToken(NodeKind.Bad);
                     break;
             }
         }
 
-        private void AddToken(TokenKind kind, bool advance = true)
+        private void AddToken(NodeKind kind)
         {
-            if (advance)
-                ++_current;
+            ++_current;
             _tokens.Add(new Token(kind, Lexeme(), _start, _current));
         }
 

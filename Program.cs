@@ -7,6 +7,8 @@ while (true)
         continue;
     Lexer lexer = new(text);
     List<Token> tokens = lexer.Lex();
-    foreach (Token token in tokens)
-        Console.WriteLine(token);
+    Parser parser = new(tokens);
+    Expr expr = parser.Parse();
+    if (expr is ErrorExpr)
+        Console.WriteLine("Error parsing expression.");
 }
