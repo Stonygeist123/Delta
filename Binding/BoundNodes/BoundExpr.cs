@@ -1,40 +1,45 @@
-﻿using Delta.Analysis;
-
-namespace Delta.Binding.BoundNodes
+﻿namespace Delta.Binding.BoundNodes
 {
     internal abstract class BoundExpr
     {
+        public abstract BoundType Type { get; }
     }
 
-    internal sealed class BoundLiteralExpr(object value) : BoundExpr
+    internal sealed class BoundLiteralExpr(object value, BoundType type) : BoundExpr
     {
         public object Value { get; } = value;
+        public override BoundType Type { get; } = type;
     }
 
-    internal sealed class BoundBinaryExpr(BoundExpr left, NodeKind op, BoundExpr right) : BoundExpr
+    internal sealed class BoundBinaryExpr(BoundExpr left, BoundBinOperator op, BoundExpr right) : BoundExpr
     {
         public BoundExpr Left { get; } = left;
-        public NodeKind Op { get; } = op;
+        public BoundBinOperator Op { get; } = op;
         public BoundExpr Right { get; } = right;
+        public override BoundType Type => Op.Result;
     }
 
-    internal sealed class BoundUnaryExpr(NodeKind op, BoundExpr operand) : BoundExpr
+    internal sealed class BoundUnaryExpr(BoundUnOperator op, BoundExpr operand) : BoundExpr
     {
-        public NodeKind Op { get; } = op;
+        public BoundUnOperator Op { get; } = op;
         public BoundExpr Operand { get; } = operand;
+        public override BoundType Type => Op.Result;
     }
 
-    internal sealed class BoundGroupingExpr(BoundExpr expression) : BoundExpr
+    internal sealed class BoundGroupingExpr(BoundExpr expr) : BoundExpr
     {
-        public BoundExpr Expression { get; } = expression;
+        public BoundExpr Expr { get; } = expr;
+        public override BoundType Type => Expr.Type;
     }
 
-    internal sealed class BoundVariableExpr(string name) : BoundExpr
+    internal sealed class BoundVariableExpr(string name, BoundType type) : BoundExpr
     {
         public string Name { get; } = name;
+        public override BoundType Type { get; } = type;
     }
 
     internal sealed class BoundErrorExpr() : BoundExpr
     {
+        public override BoundType Type => BoundType.Error;
     }
 }

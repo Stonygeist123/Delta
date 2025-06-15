@@ -1,4 +1,5 @@
 ﻿using Delta.Analysis.Nodes;
+using Delta.Binding;
 using Delta.Binding.BoundNodes;
 using System.Collections;
 using System.Reflection;
@@ -101,8 +102,7 @@ namespace Delta.Environment
 
             WriteIndent();
             Console.ForegroundColor = ConsoleColor.Magenta;
-            if (expr is not BoundLiteralExpr)
-                Console.WriteLine($"{expr.GetType().Name}");
+            Console.WriteLine($"{expr.GetType().Name}");
 
             Type type = expr.GetType();
             List<PropertyInfo> properties = type
@@ -115,15 +115,27 @@ namespace Delta.Environment
                 object? value = prop.GetValue(expr);
                 WriteIndent();
                 Console.ForegroundColor = ConsoleColor.Yellow;
-                if (expr is BoundLiteralExpr)
-                    Console.Write($"- Literal: ");
-                else
-                    Console.Write($"- {prop.Name}: ");
+                Console.Write($"- {prop.Name}: ");
 
                 if (value is BoundExpr childExpr)
                 {
                     Console.WriteLine();
                     Print(childExpr, indent + 1);
+                }
+                else if (value is BoundType childType)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkCyan;
+                    Console.WriteLine(childType.Type);
+                }
+                else if (value is BoundBinOperator childBinOp)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkCyan;
+                    Console.WriteLine(childBinOp.Op);
+                }
+                else if (value is BoundUnOperator childUnOp)
+                {
+                    Console.ForegroundColor = ConsoleColor.DarkCyan;
+                    Console.WriteLine(childUnOp.Op);
                 }
                 else if (value is IEnumerable enumerable && value is not string)
                 {

@@ -11,9 +11,9 @@ while (true)
     ConsoleColor defaultColor = Console.ForegroundColor;
     Console.ForegroundColor = ConsoleColor.DarkGreen;
     Console.Write("> ");
-    Console.ForegroundColor = defaultColor;
-
+    Console.ForegroundColor = ConsoleColor.White;
     string? text = Console.ReadLine();
+    Console.ForegroundColor = defaultColor;
     if (string.IsNullOrEmpty(text))
         continue;
     Parser parser = new(text);

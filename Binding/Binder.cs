@@ -6,8 +6,8 @@ namespace Delta.Binding
 {
     internal class Binder(string _src)
     {
-        private readonly List<string> _symbolTable = [];
-        public List<string> SymbolTable => _symbolTable;
+        private readonly Dictionary<string, BoundType> _symbolTable = [];
+        public Dictionary<string, BoundType> SymbolTable => _symbolTable;
         private readonly DiagnosticBag _diagnostics = [];
         public DiagnosticBag Diagnostics => _diagnostics;
 
@@ -26,13 +26,15 @@ namespace Delta.Binding
         private BoundVarStmt BindVarStmt(VarStmt stmt)
         {
             BoundExpr boundValue = BindExpr(stmt.Value);
-            if (_symbolTable.Contains(stmt.Name.Lexeme))
+            string name = stmt.Name.Lexeme;
+            if (_symbolTable.ContainsKey(name))
             {
-                _diagnostics.Add(_src, $"Variable '{stmt.Name.Lexeme}' is already defined.", stmt.Name.Span);
-                return new BoundVarStmt(stmt.Name.Lexeme, boundValue);
+                _diagnostics.Add(_src, $"Variable '{name}' is already defined.", stmt.Name.Span);
+                return new BoundVarStmt(name, boundValue);
             }
 
-            return new BoundVarStmt(stmt.Name.Lexeme, boundValue);
+            _symbolTable[name] = boundValue.Type;
+            return new BoundVarStmt(name, boundValue);
         }
 
         public BoundExpr BindExpr(Expr expr)
@@ -48,27 +50,37 @@ namespace Delta.Binding
             };
         }
 
-        private BoundBinaryExpr BindBinaryExpr(BinaryExpr binaryExpr)
-        {
-            BoundExpr left = BindExpr(binaryExpr.Left);
-            BoundExpr right = BindExpr(binaryExpr.Right);
-            return new BoundBinaryExpr(
-                                left,
-                                binaryExpr.Op.Kind,
-                                right);
-        }
-
-        private BoundExpr BindLiteralExpr(LiteralExpr expr)
+        private static BoundLiteralExpr BindLiteralExpr(LiteralExpr expr)
         {
             if (expr.Token.Kind == Analysis.NodeKind.Number)
-                return new BoundLiteralExpr(double.Parse(expr.Token.Lexeme));
+                return new BoundLiteralExpr(double.Parse(expr.Token.Lexeme), BoundType.Number);
             throw new Exception($"Unsupported literal type: {expr.Token.Kind}");
+        }
+
+        private BoundBinaryExpr BindBinaryExpr(BinaryExpr expr)
+        {
+            BoundExpr left = BindExpr(expr.Left);
+            BoundExpr right = BindExpr(expr.Right);
+            BoundBinOperator op = BoundBinOperator.Bind(expr.Op.Kind, left.Type, right.Type, out bool valid);
+            if (!valid)
+                _diagnostics.Add(_src, $"Invalid binary operator '{expr.Op.Lexeme}' for types '{left.Type}' and '{right.Type}'.", expr.Span);
+
+            return new BoundBinaryExpr(
+                                left,
+                                op,
+                                right);
         }
 
         private BoundExpr BindUnaryExpr(UnaryExpr expr)
         {
             BoundExpr boundOperand = BindExpr(expr.Operand);
-            return new BoundUnaryExpr(expr.Op.Kind, boundOperand);
+            BoundUnOperator op = BoundUnOperator.Bind(expr.Op.Kind, boundOperand.Type, out bool valid);
+            if (!valid)
+            {
+                _diagnostics.Add(_src, $"Invalid unary operator '{expr.Op.Lexeme}' for type '{boundOperand}'.", expr.Span);
+                return new BoundErrorExpr();
+            }
+            return new BoundUnaryExpr(op, boundOperand);
         }
 
         private BoundExpr BindGroupingExpr(GroupingExpr expr) => BindExpr(expr.Expression);
@@ -76,8 +88,8 @@ namespace Delta.Binding
         private BoundExpr BindNameExpr(NameExpr expr)
         {
             string name = expr.Name.Lexeme;
-            if (_symbolTable.Contains(name))
-                return new BoundVariableExpr(name);
+            if (_symbolTable.TryGetValue(name, out BoundType value))
+                return new BoundVariableExpr(name, value);
             _diagnostics.Add(_src, $"Variable '{name}' is not defined.", expr.Name.Span);
             return new BoundErrorExpr();
         }
