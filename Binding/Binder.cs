@@ -55,17 +55,20 @@ namespace Delta.Binding
             if (expr.Token.Kind == NodeKind.Number)
                 return new BoundLiteralExpr(double.Parse(expr.Token.Lexeme), BoundType.Number);
             else if (expr.Token.Kind == NodeKind.String)
-                return new BoundLiteralExpr(expr.Token.Lexeme[1..^2], BoundType.String);
+                return new BoundLiteralExpr(expr.Token.Lexeme[1..^1], BoundType.String);
             throw new Exception($"Unsupported literal type: {expr.Token.Kind}");
         }
 
-        private BoundBinaryExpr BindBinaryExpr(BinaryExpr expr)
+        private BoundExpr BindBinaryExpr(BinaryExpr expr)
         {
             BoundExpr left = BindExpr(expr.Left);
             BoundExpr right = BindExpr(expr.Right);
-            BoundBinOperator op = BoundBinOperator.Bind(expr.Op.Kind, left.Type, right.Type, out bool valid);
-            if (!valid)
+            BoundBinOperator? op = BoundBinOperator.Bind(expr.Op.Kind, left.Type, right.Type);
+            if (op is null)
+            {
                 _diagnostics.Add(_src, $"Invalid binary operator '{expr.Op.Lexeme}' for types '{left.Type}' and '{right.Type}'.", expr.Span);
+                return new BoundError();
+            }
 
             return new BoundBinaryExpr(
                                 left,
@@ -76,12 +79,13 @@ namespace Delta.Binding
         private BoundExpr BindUnaryExpr(UnaryExpr expr)
         {
             BoundExpr boundOperand = BindExpr(expr.Operand);
-            BoundUnOperator op = BoundUnOperator.Bind(expr.Op.Kind, boundOperand.Type, out bool valid);
-            if (!valid)
+            BoundUnOperator? op = BoundUnOperator.Bind(expr.Op.Kind, boundOperand.Type);
+            if (op is null)
             {
                 _diagnostics.Add(_src, $"Invalid unary operator '{expr.Op.Lexeme}' for type '{boundOperand}'.", expr.Span);
-                return new BoundErrorExpr();
+                return new BoundError();
             }
+
             return new BoundUnaryExpr(op, boundOperand);
         }
 
@@ -91,9 +95,9 @@ namespace Delta.Binding
         {
             string name = expr.Name.Lexeme;
             if (_symbolTable.TryGetValue(name, out BoundType value))
-                return new BoundVariableExpr(name, value);
+                return new BoundNameExpr(name, value);
             _diagnostics.Add(_src, $"Variable '{name}' is not defined.", expr.Name.Span);
-            return new BoundErrorExpr();
+            return new BoundError();
         }
     }
 }

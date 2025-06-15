@@ -1,5 +1,4 @@
-﻿using Delta.Analysis;
-using Delta.Analysis.Nodes;
+﻿using Delta.Binding.BoundNodes;
 
 namespace Delta.Interpreter
 {
@@ -7,16 +6,16 @@ namespace Delta.Interpreter
     {
         private readonly Dictionary<string, object?> _symbolTable = [];
 
-        public void Execute(Stmt stmt)
+        public void Execute(BoundStmt stmt)
         {
             switch (stmt)
             {
-                case ExprStmt exprStmt:
-                    ExecuteExpr(exprStmt.Expr);
+                case BoundExprStmt:
+                    ExecuteExpr(((BoundExprStmt)stmt).Expr);
                     break;
 
-                case VarStmt varStmt:
-                    string name = varStmt.Name.Lexeme;
+                case BoundVarStmt varStmt:
+                    string name = varStmt.Name;
                     if (_symbolTable.ContainsKey(name))
                         throw new Exception($"Variable '{name}' already exists.");
 
@@ -29,44 +28,33 @@ namespace Delta.Interpreter
             }
         }
 
-        public object? ExecuteExpr(Expr expr)
+        public object? ExecuteExpr(BoundExpr expr)
         {
             switch (expr)
             {
-                case LiteralExpr literalExpr:
-                    return double.Parse(literalExpr.Token.Lexeme);
+                case BoundLiteralExpr literalExpr:
+                    return literalExpr.Value;
 
-                case BinaryExpr binaryExpr:
-                    object? left = ExecuteExpr(binaryExpr.Left);
-                    object? right = ExecuteExpr(binaryExpr.Right);
+                case BoundBinaryExpr:
+                    object? left = ExecuteExpr(((BoundBinaryExpr)expr).Left);
+                    object? right = ExecuteExpr(((BoundBinaryExpr)expr).Right);
                     if (left is null || right is null)
                         return null;
 
-                    return binaryExpr.Op.Kind switch
-                    {
-                        NodeKind.Plus => (double)left + (double)right,
-                        NodeKind.Minus => (double)left - (double)right,
-                        NodeKind.Star => (double)left * (double)right,
-                        NodeKind.Slash => (double)left / (double)right,
-                        _ => throw new InvalidOperationException($"Unsupported operator: {binaryExpr.Op.Lexeme}")
-                    };
+                    return ((BoundBinaryExpr)expr).Op.Execute(left, right);
 
-                case UnaryExpr unaryExpr:
-                    object? operand = ExecuteExpr(unaryExpr.Operand);
+                case BoundUnaryExpr:
+                    object? operand = ExecuteExpr(((BoundUnaryExpr)expr).Operand);
                     if (operand is null)
                         return null;
-                    return unaryExpr.Op.Kind switch
-                    {
-                        NodeKind.Minus => -(double)operand,
-                        NodeKind.Plus => operand,
-                        _ => throw new InvalidOperationException($"Unsupported operator: {unaryExpr.Op.Lexeme}")
-                    };
 
-                case GroupingExpr groupingExpr:
-                    return ExecuteExpr(groupingExpr.Expression);
+                    return ((BoundUnaryExpr)expr).Op.Execute(operand);
 
-                case NameExpr nameExpr:
-                    string name = nameExpr.Name.Lexeme;
+                case BoundGroupingExpr:
+                    return ExecuteExpr(((BoundGroupingExpr)expr).Expr);
+
+                case BoundNameExpr:
+                    string name = ((BoundNameExpr)expr).Name;
                     if (!_symbolTable.TryGetValue(name, out object? value))
                         throw new Exception($"Variable '{name}' is not defined.");
                     if (value is null)

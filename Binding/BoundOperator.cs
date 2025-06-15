@@ -2,68 +2,69 @@
 
 namespace Delta.Binding
 {
-    internal class BoundBinOperator(NodeKind op, BoundType left, BoundType right, BoundType result)
+    internal enum BoundOpKind
+
     {
-        public NodeKind Op { get; } = op;
+        Plus,
+        Minus,
+        Star,
+        Slash
+    }
+
+    internal class BoundBinOperator(BoundOpKind op, BoundType left, BoundType right, BoundType result, Func<object, object, object> execute)
+    {
+        public BoundOpKind OpKind { get; } = op;
         public BoundType Left { get; } = left;
         public BoundType Right { get; } = right;
         public BoundType Result { get; } = result;
+        public Func<object, object, object> Execute { get; } = execute;
+
+        public NodeKind NodeKind => OpKind switch
+        {
+            BoundOpKind.Plus => NodeKind.Plus,
+            BoundOpKind.Minus => NodeKind.Minus,
+            BoundOpKind.Star => NodeKind.Star,
+            BoundOpKind.Slash => NodeKind.Slash,
+            _ => throw new ArgumentOutOfRangeException(nameof(OpKind), $"Unknown operator kind: {OpKind}")
+        };
 
         private static readonly List<BoundBinOperator> _operators =
         [
-            new BoundBinOperator(NodeKind.Plus, BoundType.Number, BoundType.Number, BoundType.Number),
-            new BoundBinOperator(NodeKind.Minus, BoundType.Number, BoundType.Number, BoundType.Number),
-            new BoundBinOperator(NodeKind.Star, BoundType.Number, BoundType.Number, BoundType.Number),
-            new BoundBinOperator(NodeKind.Slash, BoundType.Number, BoundType.Number, BoundType.Number),
-            new BoundBinOperator(NodeKind.Plus, BoundType.String, BoundType.String, BoundType.String),
-            new BoundBinOperator(NodeKind.Plus, BoundType.String, BoundType.Number, BoundType.String),
+            new BoundBinOperator(BoundOpKind.Plus, BoundType.Number, BoundType.Number, BoundType.Number, (a, b) => (double)a + (double)b),
+            new BoundBinOperator(BoundOpKind.Star, BoundType.Number, BoundType.Number, BoundType.Number, (a, b) => (double)a * (double)b),
+            new BoundBinOperator(BoundOpKind.Minus, BoundType.Number, BoundType.Number, BoundType.Number, (a, b) => (double)a - (double)b),
+            new BoundBinOperator(BoundOpKind.Slash, BoundType.Number, BoundType.Number, BoundType.Number, (a, b) => (double)a / (double)b),
+
+            new BoundBinOperator(BoundOpKind.Plus, BoundType.String, BoundType.String, BoundType.String, (a, b) => (string)a + (string)b),
+            new BoundBinOperator(BoundOpKind.Plus, BoundType.String, BoundType.Number, BoundType.String, (a, b) => (string)a + (double)b),
+            new BoundBinOperator(BoundOpKind.Plus, BoundType.Number, BoundType.String, BoundType.String, (a, b) => (double)a + (string)b),
         ];
 
-        private static readonly BoundBinOperator _errorOp = new(NodeKind.Bad, BoundType.Error, BoundType.Error, BoundType.Error);
-
-        public static BoundBinOperator Bind(NodeKind kind, BoundType left, BoundType right, out bool valid)
-        {
-            BoundBinOperator? op = _operators.Find(op => op.Op == kind && (op.Left == left && op.Right == right || op.Left == right && op.Right == left));
-            if (op is null)
-            {
-                valid = false;
-                return _errorOp;
-            }
-            else
-            {
-                valid = true;
-                return op;
-            }
-        }
+        public static BoundBinOperator? Bind(NodeKind kind, BoundType left, BoundType right)
+            => _operators.Find(op => op.NodeKind == kind && op.Left == left && op.Right == right);
     }
 
-    internal class BoundUnOperator(NodeKind op, BoundType operand, BoundType result)
+    internal class BoundUnOperator(BoundOpKind op, BoundType operand, BoundType result, Func<object, object> execute)
     {
-        public NodeKind Op { get; } = op;
+        public BoundOpKind OpKind { get; } = op;
         public BoundType Operand { get; } = operand;
         public BoundType Result { get; } = result;
+        public Func<object, object> Execute { get; } = execute;
+
+        public NodeKind NodeKind => OpKind switch
+        {
+            BoundOpKind.Plus => NodeKind.Plus,
+            BoundOpKind.Minus => NodeKind.Minus,
+            _ => throw new ArgumentOutOfRangeException(nameof(OpKind), $"Unknown operator kind: {OpKind}")
+        };
 
         private static readonly List<BoundUnOperator> _operators =
         [
-            new BoundUnOperator(NodeKind.Plus, BoundType.Number, BoundType.Number),
-            new BoundUnOperator(NodeKind.Minus, BoundType.Number, BoundType.Number),
+            new BoundUnOperator(BoundOpKind.Plus, BoundType.Number, BoundType.Number, (a) => a),
+            new BoundUnOperator(BoundOpKind.Minus, BoundType.Number, BoundType.Number, (a) => -(double)a),
         ];
 
-        private static readonly BoundUnOperator _errorOp = new(NodeKind.Bad, BoundType.Error, BoundType.Error);
-
-        public static BoundUnOperator Bind(NodeKind kind, BoundType operand, out bool valid)
-        {
-            BoundUnOperator? op = _operators.Find(op => op.Op == kind && op.Operand == operand);
-            if (op is null)
-            {
-                valid = false;
-                return _errorOp;
-            }
-            else
-            {
-                valid = true;
-                return op;
-            }
-        }
+        public static BoundUnOperator? Bind(NodeKind kind, BoundType operand)
+            => _operators.Find(op => op.NodeKind == kind && op.Operand == operand);
     }
 }

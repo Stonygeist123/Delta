@@ -2,7 +2,6 @@
 using Delta.Analysis.Nodes;
 using Delta.Binding;
 using Delta.Binding.BoundNodes;
-using Delta.Environment;
 using Delta.Interpreter;
 
 Interpreter interpreter = new();
@@ -27,9 +26,16 @@ while (true)
         if (binder.Diagnostics.Any())
             binder.Diagnostics.Print();
         else
-            BoundASTPrinter.PrintAll(boundStmts);
+        {
+            if (boundStmts.Last() is BoundExprStmt exprStmt)
+            {
+                boundStmts.RemoveAt(boundStmts.Count - 1);
+                boundStmts.ForEach(interpreter.Execute);
+                Console.WriteLine(interpreter.ExecuteExpr(exprStmt.Expr));
+            }
+            else
+                boundStmts.ForEach(interpreter.Execute);
+        }
+        //BoundASTPrinter.PrintAll(boundStmts);
     }
-
-    Console.WriteLine();
-    Console.WriteLine();
 }

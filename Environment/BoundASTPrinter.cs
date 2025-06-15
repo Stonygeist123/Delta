@@ -130,12 +130,12 @@ namespace Delta.Environment
                 else if (value is BoundBinOperator childBinOp)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkCyan;
-                    Console.WriteLine(childBinOp.Op);
+                    Console.WriteLine(childBinOp.OpKind);
                 }
                 else if (value is BoundUnOperator childUnOp)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkCyan;
-                    Console.WriteLine(childUnOp.Op);
+                    Console.WriteLine(childUnOp.OpKind);
                 }
                 else if (value is IEnumerable enumerable && value is not string)
                 {
