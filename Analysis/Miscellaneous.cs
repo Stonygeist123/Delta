@@ -1,30 +1,7 @@
-﻿namespace Delta.Analysis
+﻿using Delta.Analysis.Nodes;
+
+namespace Delta.Analysis
 {
-    internal enum NodeKind
-    {
-        // Operators
-        Plus, Minus, Slash, Star,
-
-        // Literals
-        Number, Identifier,
-
-        // Keywords
-        Var,
-
-        // Others
-        LParen, RParen,
-
-        Eq,
-
-        Bad, EOF,
-
-        // Exprs
-        LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, NameExpr, ErrorExpr,
-
-        // Stmts
-        ExprStmt, VarStmt, ErrorStmt
-    }
-
     internal static class Utility
     {
         public static int GetBinOpPrecedence(NodeKind kind) => kind switch

@@ -52,8 +52,10 @@ namespace Delta.Binding
 
         private static BoundLiteralExpr BindLiteralExpr(LiteralExpr expr)
         {
-            if (expr.Token.Kind == Analysis.NodeKind.Number)
+            if (expr.Token.Kind == NodeKind.Number)
                 return new BoundLiteralExpr(double.Parse(expr.Token.Lexeme), BoundType.Number);
+            else if (expr.Token.Kind == NodeKind.String)
+                return new BoundLiteralExpr(expr.Token.Lexeme[1..^2], BoundType.String);
             throw new Exception($"Unsupported literal type: {expr.Token.Kind}");
         }
 

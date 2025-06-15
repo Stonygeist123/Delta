@@ -1,4 +1,4 @@
-﻿using Delta.Analysis;
+﻿using Delta.Analysis.Nodes;
 
 namespace Delta.Binding
 {
@@ -15,13 +15,15 @@ namespace Delta.Binding
             new BoundBinOperator(NodeKind.Minus, BoundType.Number, BoundType.Number, BoundType.Number),
             new BoundBinOperator(NodeKind.Star, BoundType.Number, BoundType.Number, BoundType.Number),
             new BoundBinOperator(NodeKind.Slash, BoundType.Number, BoundType.Number, BoundType.Number),
+            new BoundBinOperator(NodeKind.Plus, BoundType.String, BoundType.String, BoundType.String),
+            new BoundBinOperator(NodeKind.Plus, BoundType.String, BoundType.Number, BoundType.String),
         ];
 
         private static readonly BoundBinOperator _errorOp = new(NodeKind.Bad, BoundType.Error, BoundType.Error, BoundType.Error);
 
         public static BoundBinOperator Bind(NodeKind kind, BoundType left, BoundType right, out bool valid)
         {
-            BoundBinOperator? op = _operators.Find(op => op.Op == kind && op.Left == left && op.Right == right);
+            BoundBinOperator? op = _operators.Find(op => op.Op == kind && (op.Left == left && op.Right == right || op.Left == right && op.Right == left));
             if (op is null)
             {
                 valid = false;

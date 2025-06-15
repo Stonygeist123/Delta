@@ -71,6 +71,7 @@ namespace Delta.Analysis
             switch (firstToken.Kind)
             {
                 case NodeKind.Number:
+                case NodeKind.String:
                     expr = new LiteralExpr(firstToken);
                     break;
 

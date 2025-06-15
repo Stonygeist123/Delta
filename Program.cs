@@ -24,7 +24,10 @@ while (true)
     {
         Binder binder = new(text);
         List<BoundStmt> boundStmts = binder.Bind(stmts);
-        BoundASTPrinter.PrintAll(boundStmts);
+        if (binder.Diagnostics.Any())
+            binder.Diagnostics.Print();
+        else
+            BoundASTPrinter.PrintAll(boundStmts);
     }
 
     Console.WriteLine();

@@ -11,7 +11,7 @@ namespace Delta.Analysis
         private readonly DiagnosticBag _diagnostics = [];
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        private Dictionary<string, NodeKind> _keywords = new()
+        private readonly Dictionary<string, NodeKind> _keywords = new()
         {
             { "var", NodeKind.Var }
         };
@@ -30,7 +30,7 @@ namespace Delta.Analysis
 
         private void GetToken()
         {
-            char c = Current();
+            char c = Current;
             switch (c)
             {
                 case '+':
@@ -67,16 +67,50 @@ namespace Delta.Analysis
                     ++_current;
                     return;
 
+                case '"':
+                    int count = 0;
+                    while (count < 2 && !IsAtEnd())
+                    {
+                        char cur = Current;
+                        ++_current;
+                        switch (cur)
+                        {
+                            case '"':
+                                ++count;
+                                break;
+
+                            case '\n':
+                                _diagnostics.Add(_src, "Unterminated string literal.", GetSpan());
+                                break;
+
+                            case '\\':
+                                if (IsAtEnd())
+                                {
+                                    _diagnostics.Add(_src, "Unterminated string literal.", GetSpan());
+                                    return;
+                                }
+                                char next = Current;
+                                if (next is 'n' or 't' or '\\' or '"' or '\'')
+                                    ++_current;
+                                else
+                                    _diagnostics.Add(_src, $"Invalid escape sequence: \\{next}", GetSpan());
+                                break;
+                        }
+                    }
+
+                    _tokens.Add(new Token(NodeKind.String, Lexeme(), GetSpan()));
+                    break;
+
                 default:
                     if (char.IsDigit(c))
                     {
-                        while (char.IsDigit(Current()))
+                        while (char.IsDigit(Current))
                             ++_current;
                         _tokens.Add(new Token(NodeKind.Number, Lexeme(), GetSpan()));
                     }
                     else if (char.IsLetter(c))
                     {
-                        while (char.IsLetterOrDigit(Current()))
+                        while (char.IsLetterOrDigit(Current))
                             ++_current;
                         string lexeme = Lexeme();
                         _tokens.Add(new Token(_keywords.TryGetValue(lexeme, out NodeKind kind) ? kind : NodeKind.Identifier, lexeme, GetSpan()));
@@ -98,7 +132,7 @@ namespace Delta.Analysis
 
         private bool IsAtEnd() => _current >= _src.Length;
 
-        private char Current() => IsAtEnd() ? '\0' : _src[_current];
+        private char Current => IsAtEnd() ? '\0' : _src[_current];
 
         private string Lexeme() => _src[_start.._current];
 

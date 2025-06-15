@@ -125,7 +125,7 @@ namespace Delta.Environment
                 else if (value is BoundType childType)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkCyan;
-                    Console.WriteLine(childType.Type);
+                    Console.WriteLine(childType);
                 }
                 else if (value is BoundBinOperator childBinOp)
                 {
