@@ -20,6 +20,6 @@
 
         public override int GetHashCode() => Type.GetHashCode();
 
-        public override string ToString() => Type;
+        public override string ToString() => Type == "?" ? "unknown" : Type;
     }
 }
