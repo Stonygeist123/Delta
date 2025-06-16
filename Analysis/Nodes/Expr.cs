@@ -44,6 +44,15 @@
         public override TextSpan Span => Name.Span;
     }
 
+    internal class AssignExpr(Token name, Token eqToken, Expr value) : Expr
+    {
+        public override NodeKind Kind => NodeKind.AssignExpr;
+        public Token Name { get; } = name;
+        public Token EqToken { get; } = eqToken;
+        public Expr Value { get; } = value;
+        public override TextSpan Span => new(Name.Span.Start, Value.Span.End);
+    }
+
     internal class ErrorExpr(params List<Node> nodes) : Expr
     {
         public override NodeKind Kind => NodeKind.ErrorExpr;

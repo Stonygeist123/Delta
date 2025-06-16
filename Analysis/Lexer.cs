@@ -13,7 +13,8 @@ namespace Delta.Analysis
 
         private readonly Dictionary<string, NodeKind> _keywords = new()
         {
-            { "var", NodeKind.Var }
+            { "var", NodeKind.Var },
+            { "mut", NodeKind.Mut }
         };
 
         public List<Token> Lex()

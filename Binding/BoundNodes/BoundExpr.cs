@@ -26,16 +26,23 @@
         public override BoundType Type => Op.Result;
     }
 
-    internal sealed class BoundNameExpr(string name, BoundType type) : BoundExpr
-    {
-        public string Name { get; } = name;
-        public override BoundType Type { get; } = type;
-    }
-
     internal sealed class BoundGroupingExpr(BoundExpr expr) : BoundExpr
     {
         public BoundExpr Expr { get; } = expr;
         public override BoundType Type => Expr.Type;
+    }
+
+    internal sealed class BoundNameExpr(BoundVarSymbol symbol) : BoundExpr
+    {
+        public BoundVarSymbol Symbol { get; } = symbol;
+        public override BoundType Type => Symbol.Type;
+    }
+
+    internal sealed class BoundAssignExpr(BoundVarSymbol symbol, BoundExpr value) : BoundExpr
+    {
+        public BoundVarSymbol Symbol { get; } = symbol;
+        public BoundExpr Value { get; } = value;
+        public override BoundType Type => Symbol.Type;
     }
 
     internal sealed class BoundError() : BoundExpr

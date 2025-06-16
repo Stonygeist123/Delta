@@ -38,28 +38,35 @@ namespace Delta.Interpreter
                 case BoundBinaryExpr:
                     object? left = ExecuteExpr(((BoundBinaryExpr)expr).Left);
                     object? right = ExecuteExpr(((BoundBinaryExpr)expr).Right);
-                    if (left is null || right is null)
-                        return null;
-
-                    return ((BoundBinaryExpr)expr).Op.Execute(left, right);
+                    return left is null || right is null ? null : ((BoundBinaryExpr)expr).Op.Execute(left, right);
 
                 case BoundUnaryExpr:
                     object? operand = ExecuteExpr(((BoundUnaryExpr)expr).Operand);
-                    if (operand is null)
-                        return null;
-
-                    return ((BoundUnaryExpr)expr).Op.Execute(operand);
+                    return operand is null ? null : ((BoundUnaryExpr)expr).Op.Execute(operand);
 
                 case BoundGroupingExpr:
                     return ExecuteExpr(((BoundGroupingExpr)expr).Expr);
 
                 case BoundNameExpr:
-                    string name = ((BoundNameExpr)expr).Name;
+                {
+                    string name = ((BoundNameExpr)expr).Symbol.Name;
                     if (!_symbolTable.TryGetValue(name, out object? value))
                         throw new Exception($"Variable '{name}' is not defined.");
                     if (value is null)
                         throw new Exception($"Variable '{name}' has no value.");
                     return value;
+                }
+
+                case BoundAssignExpr:
+                {
+                    string name = ((BoundAssignExpr)expr).Symbol.Name;
+                    if (!_symbolTable.ContainsKey(name))
+                        throw new Exception($"Variable '{name}' is not defined.");
+
+                    object? assignValue = ExecuteExpr(((BoundAssignExpr)expr).Value) ?? throw new Exception($"Variable '{name}' has no value.");
+                    _symbolTable[name] = assignValue;
+                    return assignValue;
+                }
 
                 default:
                     return null;

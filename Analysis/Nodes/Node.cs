@@ -9,7 +9,7 @@
         Number, String, Identifier,
 
         // Keywords
-        Var,
+        Var, Mut,
 
         // Others
         LParen, RParen,
@@ -19,7 +19,7 @@
         Bad, EOF,
 
         // Exprs
-        LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, NameExpr, ErrorExpr,
+        LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, NameExpr, AssignExpr, ErrorExpr,
 
         // Stmts
         ExprStmt, VarStmt, ErrorStmt

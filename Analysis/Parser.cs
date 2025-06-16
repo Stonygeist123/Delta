@@ -28,6 +28,10 @@ namespace Delta.Analysis
                 {
                     case NodeKind.Var:
                         Token varToken = Advance();
+                        Token? mutToken = null;
+                        if (Current.Kind == NodeKind.Mut)
+                            mutToken = Advance();
+
                         Token name = Advance();
                         if (name.Kind != NodeKind.Identifier)
                         {
@@ -45,7 +49,7 @@ namespace Delta.Analysis
                         }
 
                         Expr value = ParseExpr();
-                        stmts.Add(new VarStmt(varToken, name, eq, value));
+                        stmts.Add(new VarStmt(varToken, mutToken, name, eq, value));
                         break;
 
                     default:
@@ -76,7 +80,14 @@ namespace Delta.Analysis
                     break;
 
                 case NodeKind.Identifier:
-                    expr = new NameExpr(firstToken);
+                    if (Current.Kind == NodeKind.Eq)
+                    {
+                        Token eqToken = Advance();
+                        Expr value = ParseExpr();
+                        expr = new AssignExpr(firstToken, eqToken, value);
+                    }
+                    else
+                        expr = new NameExpr(firstToken);
                     break;
 
                 case NodeKind.Plus or NodeKind.Minus:

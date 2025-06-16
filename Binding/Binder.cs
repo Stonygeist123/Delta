@@ -6,8 +6,7 @@ namespace Delta.Binding
 {
     internal class Binder(string _src)
     {
-        private readonly Dictionary<string, BoundType> _symbolTable = [];
-        public Dictionary<string, BoundType> SymbolTable => _symbolTable;
+        private readonly Dictionary<string, BoundVarSymbol> _symbolTable = [];
         private readonly DiagnosticBag _diagnostics = [];
         public DiagnosticBag Diagnostics => _diagnostics;
 
@@ -33,7 +32,7 @@ namespace Delta.Binding
                 return new BoundVarStmt(name, boundValue);
             }
 
-            _symbolTable[name] = boundValue.Type;
+            _symbolTable[name] = new(name, boundValue.Type, stmt.MutToken is not null);
             return new BoundVarStmt(name, boundValue);
         }
 
@@ -46,6 +45,7 @@ namespace Delta.Binding
                 UnaryExpr => BindUnaryExpr((UnaryExpr)expr),
                 GroupingExpr => BindGroupingExpr((GroupingExpr)expr),
                 NameExpr => BindNameExpr((NameExpr)expr),
+                AssignExpr => BindAssignExpr((AssignExpr)expr),
                 _ => throw new NotSupportedException($"Unsupported expression type: {expr.GetType()}")
             };
         }
@@ -94,10 +94,35 @@ namespace Delta.Binding
         private BoundExpr BindNameExpr(NameExpr expr)
         {
             string name = expr.Name.Lexeme;
-            if (_symbolTable.TryGetValue(name, out BoundType value))
-                return new BoundNameExpr(name, value);
+            if (_symbolTable.TryGetValue(name, out BoundVarSymbol? symbol))
+                return new BoundNameExpr(symbol);
             _diagnostics.Add(_src, $"Variable '{name}' is not defined.", expr.Name.Span);
             return new BoundError();
+        }
+
+        private BoundExpr BindAssignExpr(AssignExpr expr)
+        {
+            string name = expr.Name.Lexeme;
+            if (!_symbolTable.TryGetValue(name, out BoundVarSymbol? symbol))
+            {
+                _diagnostics.Add(_src, $"Variable '{name}' is not defined.", expr.Name.Span);
+                return new BoundError();
+            }
+
+            BoundExpr value = BindExpr(expr.Value);
+            if (symbol.Type != value.Type)
+            {
+                _diagnostics.Add(_src, $"Cannot assign value of type '{symbol.Type}' to variable '{name}' of type '{value}'.", expr.Value.Span);
+                return new BoundError();
+            }
+
+            if (!symbol.Mutable)
+            {
+                _diagnostics.Add(_src, $"Cannot re-assign constant '{name}'.", expr.Value.Span);
+                return new BoundError();
+            }
+
+            return new BoundAssignExpr(symbol, value);
         }
     }
 }

@@ -12,9 +12,10 @@
         public override TextSpan Span => Expr.Span;
     }
 
-    internal class VarStmt(Token varToken, Token name, Token eqToken, Expr value) : Stmt
+    internal class VarStmt(Token varToken, Token? mutToken, Token name, Token eqToken, Expr value) : Stmt
     {
         public Token VarToken => varToken;
+        public Token? MutToken { get; } = mutToken;
         public Token Name { get; } = name;
         public Token EqToken { get; } = eqToken;
         public Expr Value => value;
