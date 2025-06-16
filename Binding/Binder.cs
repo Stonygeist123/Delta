@@ -1,12 +1,12 @@
-﻿using Delta.Analysis.Nodes;
+﻿using Delta.Analysis;
+using Delta.Analysis.Nodes;
 using Delta.Binding.BoundNodes;
 using Delta.Diagnostics;
 
 namespace Delta.Binding
 {
-    internal class Binder(string _src)
+    internal class Binder(string _src, Dictionary<string, BoundVarSymbol> _symbolTable)
     {
-        private readonly Dictionary<string, BoundVarSymbol> _symbolTable = [];
         private readonly DiagnosticBag _diagnostics = [];
         public DiagnosticBag Diagnostics => _diagnostics;
 
@@ -118,7 +118,7 @@ namespace Delta.Binding
 
             if (!symbol.Mutable)
             {
-                _diagnostics.Add(_src, $"Cannot re-assign constant '{name}'.", expr.Value.Span);
+                _diagnostics.Add(_src, $"Cannot reassign to constant '{name}'.", new TextSpan(expr.EqToken.Span.Start, expr.Value.Span.End));
                 return new BoundError();
             }
 

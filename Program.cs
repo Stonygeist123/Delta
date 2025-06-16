@@ -4,6 +4,7 @@ using Delta.Binding;
 using Delta.Binding.BoundNodes;
 using Delta.Interpreter;
 
+Dictionary<string, BoundVarSymbol> _symbolTable = [];
 Interpreter interpreter = new();
 while (true)
 {
@@ -21,7 +22,7 @@ while (true)
         parser.Diagnostics.Print();
     else
     {
-        Binder binder = new(text);
+        Binder binder = new(text, _symbolTable);
         List<BoundStmt> boundStmts = binder.Bind(stmts);
         if (binder.Diagnostics.Any())
             binder.Diagnostics.Print();
