@@ -6,6 +6,7 @@
         public static BoundType Number => new("number");
         public static BoundType String => new("string");
         public static BoundType Error => new("?");
+        public static BoundType Bool => new("bool");
 
         public static bool operator ==(BoundType a, BoundType b) => a.Type == b.Type;
 

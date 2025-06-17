@@ -76,6 +76,8 @@ namespace Delta.Analysis
             {
                 case NodeKind.Number:
                 case NodeKind.String:
+                case NodeKind.True:
+                case NodeKind.False:
                     expr = new LiteralExpr(firstToken);
                     break;
 
@@ -135,8 +137,6 @@ namespace Delta.Analysis
                         precedence = Utility.GetBinOpPrecedence(token.Kind);
                     }
                 }
-
-                return expr;
             }
 
             return expr;

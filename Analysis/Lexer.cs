@@ -14,7 +14,9 @@ namespace Delta.Analysis
         private readonly Dictionary<string, NodeKind> _keywords = new()
         {
             { "var", NodeKind.Var },
-            { "mut", NodeKind.Mut }
+            { "mut", NodeKind.Mut },
+            { "true", NodeKind.True },
+            { "false", NodeKind.False}
         };
 
         public List<Token> Lex()
@@ -59,7 +61,69 @@ namespace Delta.Analysis
                     break;
 
                 case '=':
-                    AddToken(NodeKind.Eq);
+                    if (Next == '=')
+                    {
+                        ++_current;
+                        AddToken(NodeKind.EqEq);
+                    }
+                    else
+                        AddToken(NodeKind.Eq);
+                    break;
+
+                case '!':
+                    if (Next == '=')
+                    {
+                        ++_current;
+                        AddToken(NodeKind.NotEq);
+                    }
+                    else
+                        AddToken(NodeKind.Not);
+                    break;
+
+                case '>':
+                    if (Next == '=')
+                    {
+                        ++_current;
+                        AddToken(NodeKind.GreaterEq);
+                    }
+                    else
+                        AddToken(NodeKind.Greater);
+                    break;
+
+                case '<':
+                    if (Next == '=')
+                    {
+                        ++_current;
+                        AddToken(NodeKind.LessEq);
+                    }
+                    else
+                        AddToken(NodeKind.Less);
+                    break;
+
+                case '&':
+                    if (Next == '&')
+                    {
+                        ++_current;
+                        AddToken(NodeKind.And);
+                    }
+                    else
+                    {
+                        AddToken(NodeKind.Bad);
+                        _diagnostics.Add(_src, $"Unexpected character '&'.", GetSpan());
+                    }
+                    break;
+
+                case '|':
+                    if (Next == '|')
+                    {
+                        ++_current;
+                        AddToken(NodeKind.Or);
+                    }
+                    else
+                    {
+                        AddToken(NodeKind.Bad);
+                        _diagnostics.Add(_src, $"Unexpected character '|'.", GetSpan());
+                    }
                     break;
 
                 case ' ':
@@ -134,6 +198,7 @@ namespace Delta.Analysis
         private bool IsAtEnd() => _current >= _src.Length;
 
         private char Current => IsAtEnd() ? '\0' : _src[_current];
+        private char Next => _current - 1 >= _src.Length ? '\0' : _src[_current + 1];
 
         private string Lexeme() => _src[_start.._current];
 

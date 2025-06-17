@@ -50,14 +50,14 @@ namespace Delta.Binding
             };
         }
 
-        private static BoundLiteralExpr BindLiteralExpr(LiteralExpr expr)
+        private static BoundLiteralExpr BindLiteralExpr(LiteralExpr expr) => expr.Token.Kind switch
         {
-            if (expr.Token.Kind == NodeKind.Number)
-                return new BoundLiteralExpr(double.Parse(expr.Token.Lexeme), BoundType.Number);
-            else if (expr.Token.Kind == NodeKind.String)
-                return new BoundLiteralExpr(expr.Token.Lexeme[1..^1], BoundType.String);
-            throw new Exception($"Unsupported literal type: {expr.Token.Kind}");
-        }
+            NodeKind.Number => new BoundLiteralExpr(double.Parse(expr.Token.Lexeme), BoundType.Number),
+            NodeKind.String => new BoundLiteralExpr(expr.Token.Lexeme[1..^1], BoundType.String),
+            NodeKind.True => new BoundLiteralExpr(true, BoundType.Bool),
+            NodeKind.False => new BoundLiteralExpr(false, BoundType.Bool),
+            _ => throw new Exception($"Unsupported literal type: {expr.Token.Kind}")
+        };
 
         private BoundExpr BindBinaryExpr(BinaryExpr expr)
         {
@@ -112,7 +112,7 @@ namespace Delta.Binding
             BoundExpr value = BindExpr(expr.Value);
             if (symbol.Type != value.Type)
             {
-                _diagnostics.Add(_src, $"Cannot assign value of type '{symbol.Type}' to variable '{name}' of type '{value}'.", expr.Value.Span);
+                _diagnostics.Add(_src, $"Cannot assign value of type '{symbol.Type}' to variable '{name}' of type '{value.Type}'.", expr.Value.Span);
                 return new BoundError();
             }
 

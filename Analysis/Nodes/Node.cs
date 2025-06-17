@@ -5,11 +5,13 @@
         // Operators
         Plus, Minus, Slash, Star,
 
+        Not, EqEq, NotEq, Greater, GreaterEq, Less, LessEq, And, Or,
+
         // Literals
         Number, String, Identifier,
 
         // Keywords
-        Var, Mut,
+        Var, Mut, True, False,
 
         // Others
         LParen, RParen,
