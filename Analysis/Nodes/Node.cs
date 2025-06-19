@@ -11,10 +11,10 @@
         Number, String, Identifier,
 
         // Keywords
-        Var, Mut, True, False,
+        Var, Mut, True, False, If, Else, Loop,
 
         // Others
-        LParen, RParen,
+        LParen, RParen, LBrace, RBrace,
 
         Eq,
 
@@ -24,7 +24,7 @@
         LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, NameExpr, AssignExpr, ErrorExpr,
 
         // Stmts
-        ExprStmt, VarStmt, ErrorStmt
+        ExprStmt, VarStmt, BlockStmt, IfStmt, ElseStmt, LoopStmt, ErrorStmt
     }
 
     internal abstract class Node

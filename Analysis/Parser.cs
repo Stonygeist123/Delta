@@ -23,43 +23,75 @@ namespace Delta.Analysis
         {
             List<Stmt> stmts = [];
             while (!IsAtEnd())
-            {
-                switch (Current.Kind)
-                {
-                    case NodeKind.Var:
-                        Token varToken = Advance();
-                        Token? mutToken = null;
-                        if (Current.Kind == NodeKind.Mut)
-                            mutToken = Advance();
-
-                        Token name = Advance();
-                        if (name.Kind != NodeKind.Identifier)
-                        {
-                            _diagnostics.Add(_src, "Expected an identifier.", name.Span);
-                            stmts.Add(new ErrorStmt(varToken, name));
-                            break;
-                        }
-
-                        Token eq = Advance();
-                        if (eq.Kind != NodeKind.Eq)
-                        {
-                            _diagnostics.Add(_src, "Expected '='.", eq.Span);
-                            stmts.Add(new ErrorStmt(varToken, name, eq));
-                            break;
-                        }
-
-                        Expr value = ParseExpr();
-                        stmts.Add(new VarStmt(varToken, mutToken, name, eq, value));
-                        break;
-
-                    default:
-                        Expr expr = ParseExpr();
-                        stmts.Add(new ExprStmt(expr));
-                        break;
-                }
-            }
-
+                stmts.Add(ParseStmt());
             return stmts;
+        }
+
+        public Stmt ParseStmt()
+        {
+            switch (Current.Kind)
+            {
+                case NodeKind.Var:
+                {
+                    Token varToken = Advance();
+                    Token? mutToken = null;
+                    if (Current.Kind == NodeKind.Mut)
+                        mutToken = Advance();
+
+                    Token name = Current;
+                    if (!Match(NodeKind.Identifier))
+                        return new ErrorStmt(varToken, name);
+
+                    Token eqToken = Current;
+                    if (!Match(NodeKind.Eq))
+                        return new ErrorStmt(varToken, name, eqToken);
+
+                    Expr value = ParseExpr();
+                    return new VarStmt(varToken, mutToken, name, eqToken, value);
+                }
+
+                case NodeKind.LBrace:
+                {
+                    Token lBrace = Advance();
+                    List<Stmt> stmts = [];
+                    while (Current.Kind != NodeKind.RBrace && !IsAtEnd())
+                        stmts.Add(ParseStmt());
+
+                    Token rBrace = Current;
+                    if (!Match(NodeKind.RBrace))
+                        return new ErrorStmt([lBrace, .. stmts, rBrace]);
+                    return new BlockStmt(lBrace, stmts, rBrace);
+                }
+
+                case NodeKind.If:
+                {
+                    Token ifToken = Advance();
+                    Expr? condition = Current.Kind == NodeKind.LBrace ? null : ParseExpr();
+                    Stmt thenStmt = ParseStmt();
+
+                    if (Current.Kind == NodeKind.Else)
+                    {
+                        Token elseToken = Advance();
+                        Stmt elseClause = ParseStmt();
+                        return new IfStmt(ifToken, condition, thenStmt, new ElseStmt(elseToken, elseClause));
+                    }
+
+                    return new IfStmt(ifToken, condition, thenStmt);
+                }
+
+                case NodeKind.Loop:
+                {
+                    Token ifToken = Advance();
+                    Expr? condition = Current.Kind == NodeKind.LBrace ? null : ParseExpr();
+                    Stmt thenStmt = ParseStmt();
+
+                    return new LoopStmt(ifToken, condition, thenStmt);
+                }
+
+                default:
+                    Expr expr = ParseExpr();
+                    return new ExprStmt(expr);
+            }
         }
 
         public Expr ParseExpr(int parentPrecedence = 0)
@@ -145,6 +177,18 @@ namespace Delta.Analysis
         private Token Current => _tokens[_current];
 
         private Token Advance() => _tokens[_current++];
+
+        private bool Match(NodeKind kind)
+        {
+            Token cur = Advance();
+            if (cur.Kind == kind)
+                return true;
+            else
+            {
+                _diagnostics.Add(_src, $"Expected '{Utility.GetLexeme(kind)}' but found '{Utility.GetLexeme(cur.Kind)}'.", cur.Span);
+                return false;
+            }
+        }
 
         private bool IsAtEnd() => _current >= _tokens.Count || Current.Kind == NodeKind.EOF;
     }

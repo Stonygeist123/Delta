@@ -11,14 +11,6 @@ namespace Delta.Analysis
         private readonly DiagnosticBag _diagnostics = [];
         public DiagnosticBag Diagnostics => _diagnostics;
 
-        private readonly Dictionary<string, NodeKind> _keywords = new()
-        {
-            { "var", NodeKind.Var },
-            { "mut", NodeKind.Mut },
-            { "true", NodeKind.True },
-            { "false", NodeKind.False}
-        };
-
         public List<Token> Lex()
         {
             while (!IsAtEnd())
@@ -58,6 +50,14 @@ namespace Delta.Analysis
 
                 case ')':
                     AddToken(NodeKind.RParen);
+                    break;
+
+                case '{':
+                    AddToken(NodeKind.LBrace);
+                    break;
+
+                case '}':
+                    AddToken(NodeKind.RBrace);
                     break;
 
                 case '=':
@@ -178,7 +178,7 @@ namespace Delta.Analysis
                         while (char.IsLetterOrDigit(Current))
                             ++_current;
                         string lexeme = Lexeme();
-                        _tokens.Add(new Token(_keywords.TryGetValue(lexeme, out NodeKind kind) ? kind : NodeKind.Identifier, lexeme, GetSpan()));
+                        _tokens.Add(new Token(Utility.Keywords.TryGetValue(lexeme, out NodeKind kind) ? kind : NodeKind.Identifier, lexeme, GetSpan()));
                     }
                     else
                     {

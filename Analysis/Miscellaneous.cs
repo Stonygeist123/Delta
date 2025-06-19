@@ -28,6 +28,47 @@ namespace Delta.Analysis
             NodeKind.Not => 7,
             _ => 0
         };
+
+        public static string? GetLexeme(NodeKind kind) => kind switch
+        {
+            NodeKind.Plus => "+",
+            NodeKind.Minus => "-",
+            NodeKind.Slash => "/",
+            NodeKind.Star => "*",
+            NodeKind.Not => "!",
+            NodeKind.EqEq => "==",
+            NodeKind.NotEq => "!=",
+            NodeKind.Greater => ">",
+            NodeKind.GreaterEq => ">=",
+            NodeKind.Less => "<",
+            NodeKind.LessEq => "<=",
+            NodeKind.And => "&&",
+            NodeKind.Or => "||",
+            NodeKind.LParen => "(",
+            NodeKind.RParen => ")",
+            NodeKind.LBrace => "{",
+            NodeKind.RBrace => "}",
+            NodeKind.Eq => "=",
+            NodeKind.True => "true",
+            NodeKind.False => "false",
+            NodeKind.Var => "var",
+            NodeKind.Mut => "mut",
+            NodeKind.If => "if",
+            NodeKind.Else => "else",
+            NodeKind.Loop => "loop",
+            _ => null,
+        };
+
+        public static readonly Dictionary<string, NodeKind> Keywords = new()
+        {
+            { "var", NodeKind.Var },
+            { "mut", NodeKind.Mut },
+            { "true", NodeKind.True },
+            { "false", NodeKind.False},
+            { "if", NodeKind.If},
+            { "else", NodeKind.Else},
+            { "loop", NodeKind.Loop},
+        };
     }
 
     internal readonly struct TextSpan(int start, int end)

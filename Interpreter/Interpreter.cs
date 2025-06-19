@@ -14,14 +14,44 @@ namespace Delta.Interpreter
                     ExecuteExpr(((BoundExprStmt)stmt).Expr);
                     break;
 
-                case BoundVarStmt varStmt:
-                    string name = varStmt.Name;
+                case BoundVarStmt:
+                    string name = ((BoundVarStmt)stmt).Name;
                     if (_symbolTable.ContainsKey(name))
                         throw new Exception($"Variable '{name}' already exists.");
 
-                    object? value = ExecuteExpr(varStmt.Value) ?? throw new Exception($"Variable '{name}' has no value.");
+                    object? value = ExecuteExpr(((BoundVarStmt)stmt).Value) ?? throw new Exception($"Variable '{name}' has no value.");
                     _symbolTable.Add(name, value);
                     break;
+
+                case BoundBlockStmt:
+                {
+                    foreach (BoundStmt childStmt in ((BoundBlockStmt)stmt).Stmts)
+                        Execute(childStmt);
+                    break;
+                }
+
+                case BoundIfStmt:
+                {
+                    object? conditionValue = ExecuteExpr(((BoundIfStmt)stmt).Condition) ?? throw new Exception($"Condition has no value.");
+                    BoundStmt? elseClause = ((BoundIfStmt)stmt).ElseClause;
+                    if (conditionValue is bool condition && condition)
+                        Execute(((BoundIfStmt)stmt).ThenStmt);
+                    else if (elseClause is not null)
+                        Execute(elseClause);
+                    break;
+                }
+
+                case BoundLoopStmt:
+                {
+                    while (true)
+                    {
+                        object? conditionValue = ExecuteExpr(((BoundLoopStmt)stmt).Condition);
+                        if (conditionValue is not bool condition || !condition)
+                            break;
+                        Execute(((BoundLoopStmt)stmt).ThenStmt);
+                    }
+                    break;
+                }
 
                 default:
                     throw new Exception($"Unsupported statement.");

@@ -14,4 +14,22 @@
         public string Name { get; } = name;
         public BoundExpr Value { get; } = value;
     }
+
+    internal sealed class BoundBlockStmt(List<BoundStmt> stmts) : BoundStmt
+    {
+        public List<BoundStmt> Stmts { get; } = stmts;
+    }
+
+    internal sealed class BoundIfStmt(BoundExpr condition, BoundStmt thenStmt, BoundStmt? elseClause) : BoundStmt
+    {
+        public BoundExpr Condition { get; } = condition;
+        public BoundStmt ThenStmt { get; } = thenStmt;
+        public BoundStmt? ElseClause { get; } = elseClause;
+    }
+
+    internal sealed class BoundLoopStmt(BoundExpr condition, BoundStmt thenStmt) : BoundStmt
+    {
+        public BoundExpr Condition { get; } = condition;
+        public BoundStmt ThenStmt { get; } = thenStmt;
+    }
 }

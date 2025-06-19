@@ -18,6 +18,9 @@ namespace Delta.Binding
             {
                 ExprStmt exprStmt => new BoundExprStmt(BindExpr(exprStmt.Expr)),
                 VarStmt => BindVarStmt((VarStmt)stmt),
+                BlockStmt => BindBlockStmt((BlockStmt)stmt),
+                IfStmt => BindIfStmt((IfStmt)stmt),
+                LoopStmt => BindLoopStmt((LoopStmt)stmt),
                 _ => throw new NotSupportedException($"Unsupported statement type: {stmt.GetType()}")
             };
         }
@@ -36,19 +39,49 @@ namespace Delta.Binding
             return new BoundVarStmt(name, boundValue);
         }
 
-        public BoundExpr BindExpr(Expr expr)
+        private BoundBlockStmt BindBlockStmt(BlockStmt stmt)
         {
-            return expr switch
-            {
-                LiteralExpr => BindLiteralExpr((LiteralExpr)expr),
-                BinaryExpr => BindBinaryExpr((BinaryExpr)expr),
-                UnaryExpr => BindUnaryExpr((UnaryExpr)expr),
-                GroupingExpr => BindGroupingExpr((GroupingExpr)expr),
-                NameExpr => BindNameExpr((NameExpr)expr),
-                AssignExpr => BindAssignExpr((AssignExpr)expr),
-                _ => throw new NotSupportedException($"Unsupported expression type: {expr.GetType()}")
-            };
+            List<BoundStmt> boundStmts = stmt.Stmts.Select(BindStmt).ToList();
+            return new BoundBlockStmt(boundStmts);
         }
+
+        private BoundIfStmt BindIfStmt(IfStmt stmt)
+        {
+            BoundExpr? condition = stmt.Condition is null ? new BoundLiteralExpr(true, BoundType.Bool) : BindExpr(stmt.Condition);
+            if (stmt.Condition is not null && condition.Type != BoundType.Bool)
+            {
+                _diagnostics.Add(_src, $"Condition must be of type 'bool', but got '{condition.Type}'.", stmt.Condition!.Span);
+                condition = new BoundError();
+            }
+
+            BoundStmt thenStmt = BindStmt(stmt.ThenStmt);
+            BoundStmt? elseClause = stmt.ElseClause is null ? null : BindStmt(stmt.ElseClause.ThenStmt);
+            return new BoundIfStmt(condition, thenStmt, elseClause);
+        }
+
+        private BoundLoopStmt BindLoopStmt(LoopStmt stmt)
+        {
+            BoundExpr? condition = stmt.Condition is null ? new BoundLiteralExpr(true, BoundType.Bool) : BindExpr(stmt.Condition);
+            if (stmt.Condition is not null && condition.Type != BoundType.Bool)
+            {
+                _diagnostics.Add(_src, $"Condition must be of type 'bool', but got '{condition.Type}'.", stmt.Condition!.Span);
+                condition = new BoundError();
+            }
+
+            BoundStmt thenStmt = BindStmt(stmt.ThenStmt);
+            return new BoundLoopStmt(condition, thenStmt);
+        }
+
+        public BoundExpr BindExpr(Expr expr) => expr switch
+        {
+            LiteralExpr => BindLiteralExpr((LiteralExpr)expr),
+            BinaryExpr => BindBinaryExpr((BinaryExpr)expr),
+            UnaryExpr => BindUnaryExpr((UnaryExpr)expr),
+            GroupingExpr => BindGroupingExpr((GroupingExpr)expr),
+            NameExpr => BindNameExpr((NameExpr)expr),
+            AssignExpr => BindAssignExpr((AssignExpr)expr),
+            _ => throw new NotSupportedException($"Unsupported expression type: {expr.GetType()}")
+        };
 
         private static BoundLiteralExpr BindLiteralExpr(LiteralExpr expr) => expr.Token.Kind switch
         {
