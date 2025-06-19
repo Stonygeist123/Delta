@@ -6,7 +6,7 @@
         public BoundType Type { get; } = type;
     }
 
-    internal class BoundVarSymbol(string name, BoundType type, bool mutable) : BoundSymbol(name, type)
+    internal class VarSymbol(string name, BoundType type, bool mutable) : BoundSymbol(name, type)
     {
         public bool Mutable { get; } = mutable;
     }

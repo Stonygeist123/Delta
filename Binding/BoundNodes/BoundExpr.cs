@@ -32,15 +32,15 @@
         public override BoundType Type => Expr.Type;
     }
 
-    internal sealed class BoundNameExpr(BoundVarSymbol symbol) : BoundExpr
+    internal sealed class BoundNameExpr(VarSymbol symbol) : BoundExpr
     {
-        public BoundVarSymbol Symbol { get; } = symbol;
+        public VarSymbol Symbol { get; } = symbol;
         public override BoundType Type => Symbol.Type;
     }
 
-    internal sealed class BoundAssignExpr(BoundVarSymbol symbol, BoundExpr value) : BoundExpr
+    internal sealed class BoundAssignExpr(VarSymbol symbol, BoundExpr value) : BoundExpr
     {
-        public BoundVarSymbol Symbol { get; } = symbol;
+        public VarSymbol Symbol { get; } = symbol;
         public BoundExpr Value { get; } = value;
         public override BoundType Type => Symbol.Type;
     }

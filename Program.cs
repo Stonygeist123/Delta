@@ -4,8 +4,9 @@ using Delta.Binding;
 using Delta.Binding.BoundNodes;
 using Delta.Interpreter;
 
-Dictionary<string, BoundVarSymbol> _symbolTable = [];
-Interpreter interpreter = new();
+BoundScope boundGlobalScope = new(null);
+Scope globalScope = new(null);
+Interpreter interpreter = new(globalScope);
 while (true)
 {
     ConsoleColor defaultColor = Console.ForegroundColor;
@@ -22,7 +23,7 @@ while (true)
         parser.Diagnostics.Print();
     else
     {
-        Binder binder = new(text, _symbolTable);
+        Binder binder = new(text, boundGlobalScope);
         List<BoundStmt> boundStmts = binder.Bind(stmts);
         if (binder.Diagnostics.Any())
             binder.Diagnostics.Print();

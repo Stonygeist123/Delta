@@ -1,10 +1,11 @@
-﻿using Delta.Binding.BoundNodes;
+﻿using Delta.Binding;
+using Delta.Binding.BoundNodes;
 
 namespace Delta.Interpreter
 {
-    internal class Interpreter()
+    internal class Interpreter(Scope _globals)
     {
-        private readonly Dictionary<string, object?> _symbolTable = [];
+        private Scope _scope = _globals;
 
         public void Execute(BoundStmt stmt)
         {
@@ -15,18 +16,17 @@ namespace Delta.Interpreter
                     break;
 
                 case BoundVarStmt:
-                    string name = ((BoundVarStmt)stmt).Name;
-                    if (_symbolTable.ContainsKey(name))
-                        throw new Exception($"Variable '{name}' already exists.");
-
-                    object? value = ExecuteExpr(((BoundVarStmt)stmt).Value) ?? throw new Exception($"Variable '{name}' has no value.");
-                    _symbolTable.Add(name, value);
+                    VarSymbol symbol = ((BoundVarStmt)stmt).Symbol;
+                    object? value = ExecuteExpr(((BoundVarStmt)stmt).Value) ?? throw new Exception($"Variable '{symbol.Name}' has no value.");
+                    _scope.TryDeclareVar(symbol.Name, value);
                     break;
 
                 case BoundBlockStmt:
                 {
+                    _scope = new(_scope);
                     foreach (BoundStmt childStmt in ((BoundBlockStmt)stmt).Stmts)
                         Execute(childStmt);
+                    _scope = _scope.Parent!;
                     break;
                 }
 
@@ -80,7 +80,7 @@ namespace Delta.Interpreter
                 case BoundNameExpr:
                 {
                     string name = ((BoundNameExpr)expr).Symbol.Name;
-                    if (!_symbolTable.TryGetValue(name, out object? value))
+                    if (!_scope.TryGetVar(name, out object? value))
                         throw new Exception($"Variable '{name}' is not defined.");
                     if (value is null)
                         throw new Exception($"Variable '{name}' has no value.");
@@ -90,11 +90,9 @@ namespace Delta.Interpreter
                 case BoundAssignExpr:
                 {
                     string name = ((BoundAssignExpr)expr).Symbol.Name;
-                    if (!_symbolTable.ContainsKey(name))
+                    object assignValue = ExecuteExpr(((BoundAssignExpr)expr).Value) ?? throw new Exception($"Value to assign to '{name}' has no value.");
+                    if (!_scope.TryAssign(name, assignValue))
                         throw new Exception($"Variable '{name}' is not defined.");
-
-                    object? assignValue = ExecuteExpr(((BoundAssignExpr)expr).Value) ?? throw new Exception($"Variable '{name}' has no value.");
-                    _symbolTable[name] = assignValue;
                     return assignValue;
                 }
 

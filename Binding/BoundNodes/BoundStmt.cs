@@ -9,9 +9,9 @@
         public BoundExpr Expr { get; } = expr;
     }
 
-    internal sealed class BoundVarStmt(string name, BoundExpr value) : BoundStmt
+    internal sealed class BoundVarStmt(VarSymbol symbol, BoundExpr value) : BoundStmt
     {
-        public string Name { get; } = name;
+        public VarSymbol Symbol { get; } = symbol;
         public BoundExpr Value { get; } = value;
     }
 
