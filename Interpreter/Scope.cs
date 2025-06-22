@@ -4,13 +4,13 @@ namespace Delta.Interpreter
 {
     internal class Scope(Scope? parent)
     {
-        private readonly Dictionary<string, object> _variables = [];
+        private readonly Dictionary<string, object?> _variables = [];
         private readonly Dictionary<string, BoundBlockStmt> _fns = [];
-        public Dictionary<string, object> Variables => _variables;
+        public Dictionary<string, object?> Variables => _variables;
         public Dictionary<string, BoundBlockStmt> Fns => _fns;
         public Scope? Parent { get; } = parent;
 
-        public bool TryDeclareVar(string name, object value)
+        public bool TryDeclareVar(string name, object? value)
         {
             if (HasVar(name))
                 return false;

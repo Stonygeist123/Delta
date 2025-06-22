@@ -53,11 +53,20 @@
         public override TextSpan Span => new(Name.Span.Start, Value.Span.End);
     }
 
-    internal class CallExpr(Token name, Token lParen, Token rParen) : Expr
+    internal class Arg(Token? comma, Expr arg) : Node
+    {
+        public Token? Comma = comma;
+        public Expr Expr = arg;
+        public override NodeKind Kind => NodeKind.Arg;
+        public override TextSpan Span => new((Comma?.Span ?? Expr.Span).Start, Expr.Span.End);
+    }
+
+    internal class CallExpr(Token name, Token lParen, List<Arg> args, Token rParen) : Expr
     {
         public override NodeKind Kind => NodeKind.CallExpr;
         public Token Name { get; } = name;
         public Token LParen { get; } = lParen;
+        public List<Arg> Args { get; } = args;
         public Token RParen { get; } = rParen;
         public override TextSpan Span => new(Name.Span.Start, RParen.Span.End);
     }

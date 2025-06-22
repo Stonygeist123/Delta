@@ -84,8 +84,38 @@ namespace Delta.Analysis
                     if (!Match(NodeKind.Identifier))
                         return new ErrorStmt(fnToken, name);
                     Stmt body = ParseBlockStmt();
+                    ParameterList? parameters = null;
+                    Token lParen = Current;
+                    if (lParen.Kind == NodeKind.LParen)
+                    {
+                        ++_current;
+                        List<Param> paramList = [];
+                        while (Current.Kind != NodeKind.RParen && !IsAtEnd())
+                        {
+                            Token? comma = null;
+                            if (paramList.Count > 0)
+                            {
+                                comma = Advance();
+                                if (Current.Kind != NodeKind.Comma)
+                                    _diagnostics.Add(_src, "Expected ',' between parameters.", comma.Span);
+                                break;
+                            }
+
+                            Token paramName = Current;
+                            Param param = new(comma, paramName);
+                            if (!Match(NodeKind.Identifier))
+                                return new ErrorStmt([fnToken, name, lParen, .. paramList, param]);
+                            paramList.Add(param);
+                        }
+
+                        Token rParen = Current;
+                        parameters = new ParameterList(lParen, paramList, rParen);
+                        if (!Match(NodeKind.RParen))
+                            return new ErrorStmt([fnToken, name, parameters]);
+                    }
+
                     return body is BlockStmt block
-                        ? new FnDecl(fnToken, name, block)
+                        ? new FnDecl(fnToken, name, parameters, block)
                         : new ErrorStmt(fnToken, name, body);
                 }
 
@@ -190,10 +220,31 @@ namespace Delta.Analysis
             else if (expr is NameExpr n && token.Kind == NodeKind.LParen)
             {
                 ++_current;
+                List<Arg> args = [];
+                while (!IsAtEnd() && Current.Kind != NodeKind.RParen)
+                {
+                    Expr arg = ParseExpr();
+                    if (args.Count == 0)
+                        args.Add(new(null, arg));
+                    else
+                    {
+                        Token comma = Advance();
+                        if (comma.Kind != NodeKind.Comma)
+                            _diagnostics.Add(_src, "Expected ',' between arguments.", comma.Span);
+                        args.Add(new(comma, arg));
+                    }
+                }
+
+                if (IsAtEnd())
+                {
+                    _diagnostics.Add(_src, "Expected ')'.", Current.Span);
+                    return new ErrorExpr([n, token, .. args]);
+                }
+
                 Token rParen = Current;
                 if (!Match(NodeKind.RParen))
                     return new ErrorExpr(n, rParen);
-                expr = new CallExpr(n.Name, token, rParen);
+                expr = new CallExpr(n.Name, token, args, rParen);
             }
 
             return expr;

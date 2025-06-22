@@ -1,4 +1,5 @@
 ﻿using Delta.Binding.BoundNodes;
+using Delta.Environment;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Delta.Binding
@@ -23,7 +24,7 @@ namespace Delta.Binding
             return true;
         }
 
-        public bool TryDeclareFn(string name, BoundType type, BoundBlockStmt body, [MaybeNullWhen(false)] out FnSymbol symbol)
+        public bool TryDeclareFn(string name, BoundType type, BoundBlockStmt body, List<ParamSymbol> paramList, [MaybeNullWhen(false)] out FnSymbol symbol)
         {
             if (HasFn(name))
             {
@@ -31,13 +32,23 @@ namespace Delta.Binding
                 return false;
             }
 
-            Fns.Add(name, symbol = new FnSymbol(name, type, body));
+            Fns.Add(name, symbol = new FnSymbol(name, type, paramList, body));
             return true;
         }
 
         public bool TryGetVar(string name, [MaybeNullWhen(false)] out VarSymbol variable) => Variables.TryGetValue(name, out variable) || Parent is not null && Parent.TryGetVar(name, out variable);
 
-        public bool TryGetFn(string name, [MaybeNullWhen(false)] out FnSymbol fn) => Fns.TryGetValue(name, out fn) || Parent is not null && Parent.TryGetFn(name, out fn);
+        public bool TryGetFn(string name, [MaybeNullWhen(false)] out FnSymbol fn)
+        {
+            FnSymbol? builtInFn = BuiltIn.Fns.Find(f => f.Name == name);
+            if (builtInFn != null)
+            {
+                fn = builtInFn;
+                return true;
+            }
+
+            return (Fns.TryGetValue(name, out fn) || Parent is not null && Parent.TryGetFn(name, out fn));
+        }
 
         public bool HasVar(string name) => Variables.ContainsKey(name) || Parent is not null && Parent.HasVar(name);
 

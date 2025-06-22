@@ -59,7 +59,7 @@ namespace Delta.Interpreter
                 case BoundFnDecl:
                 {
                     FnSymbol symbol = ((BoundFnDecl)stmt).Symbol;
-                    _scope.TryDeclareFn(symbol.Name, symbol.Body);
+                    _scope.TryDeclareFn(symbol.Name, symbol.Body!);
                     break;
                 }
 
@@ -111,7 +111,29 @@ namespace Delta.Interpreter
                     FnSymbol symbol = ((BoundCallExpr)expr).Symbol;
                     _scope = new(_scope);
                     object? result = null;
-                    Execute(symbol.Body);
+
+                    List<object?> args = ((BoundCallExpr)expr).Args.Select(ExecuteExpr).ToList();
+                    ;
+                    if (symbol is BuiltInFn)
+                    {
+                        switch (symbol.Name)
+                        {
+                            case "print":
+                            {
+                                Console.WriteLine(args[0]);
+                                result = null;
+                                break;
+                            }
+                            default:
+                                throw new Exception($"Unsupported built-in function '{symbol.Name}'.");
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < args.Count; i++)
+                            _scope.TryDeclareVar(symbol.ParamList[i].Name, args[i]!);
+                        Execute(symbol.Body!);
+                    }
                     _scope = _scope.Parent!;
                     return result;
                 }

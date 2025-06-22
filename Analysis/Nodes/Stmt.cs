@@ -59,12 +59,31 @@
         public override TextSpan Span => new(LoopToken.Span.Start, ThenStmt.Span.End);
     }
 
-    internal class FnDecl(Token fnToken, Token name, BlockStmt body) : Stmt
+    internal class Param(Token? comma, Token name) : Node
+    {
+        public Token? Comma { get; } = comma;
+        public Token Name { get; } = name;
+        public override NodeKind Kind => NodeKind.Param;
+        public override TextSpan Span => new((Comma?.Span ?? Name.Span).Start, Name.Span.End);
+    }
+
+    internal class ParameterList(Token lParen, List<Param> paramList, Token rParen) : Node
+    {
+        public Token LParen { get; } = lParen;
+        public List<Param> ParamList { get; } = paramList;
+        public Token RParen { get; } = rParen;
+        public override NodeKind Kind => NodeKind.ParameterList;
+        public override TextSpan Span => new(LParen.Span.Start, RParen.Span.End);
+    }
+
+    internal class FnDecl(Token fnToken, Token name, ParameterList? parameters, BlockStmt body) : Stmt
     {
         public Token FnToken { get; } = fnToken;
         public Token Name { get; } = name;
+        public ParameterList? Parameters { get; } = parameters;
         public BlockStmt Body { get; } = body;
         public override NodeKind Kind => NodeKind.FnDecl;
+
         public override TextSpan Span => new(FnToken.Span.Start, Body.Span.End);
     }
 

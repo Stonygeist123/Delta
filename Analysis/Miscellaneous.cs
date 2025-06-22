@@ -49,6 +49,7 @@ namespace Delta.Analysis
             NodeKind.LBrace => "{",
             NodeKind.RBrace => "}",
             NodeKind.Eq => "=",
+            NodeKind.Comma => ",",
             NodeKind.True => "true",
             NodeKind.False => "false",
             NodeKind.Var => "var",

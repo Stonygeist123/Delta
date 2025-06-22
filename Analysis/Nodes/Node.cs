@@ -14,11 +14,14 @@
         Var, Mut, True, False, If, Else, Loop, Fn,
 
         // Others
-        LParen, RParen, LBrace, RBrace,
+        LParen, RParen, LBrace, RBrace, Comma,
 
         Eq,
 
         Bad, EOF,
+
+        // Misc
+        ParameterList, Param, Arg,
 
         // Exprs
         LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, NameExpr, AssignExpr, CallExpr, ErrorExpr,

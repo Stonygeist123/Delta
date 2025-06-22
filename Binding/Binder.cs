@@ -88,9 +88,12 @@ namespace Delta.Binding
         {
             string name = decl.Name.Lexeme;
             BoundBlockStmt body = BindBlockStmt(decl.Body);
-            if (!_scope.TryDeclareFn(name, BoundType.Void, body, out FnSymbol? symbol))
+            List<ParamSymbol> paramList = decl.Parameters?.ParamList
+                .Select(param => new ParamSymbol(param.Name.Lexeme))
+                .ToList() ?? [];
+            if (!_scope.TryDeclareFn(name, BoundType.Void, body, paramList, out FnSymbol? symbol))
                 _diagnostics.Add(_src, $"Function '{name}' is already defined.", decl.Name.Span);
-            return new BoundFnDecl(symbol ?? new(name, BoundType.Void, body));
+            return new BoundFnDecl(symbol ?? new(name, BoundType.Void, paramList, body));
         }
 
         public BoundExpr BindExpr(Expr expr) => expr switch
@@ -190,7 +193,23 @@ namespace Delta.Binding
                 return new BoundError();
             }
 
-            return new BoundCallExpr(fn);
+            List<BoundExpr> args = expr.Args.Select(a => BindExpr(a.Expr)).ToList();
+            if (args.Count != fn.ParamList.Count)
+            {
+                _diagnostics.Add(_src, $"Function '{name}' expects {fn.ParamList.Count} arguments, but got {args.Count}.", expr.Span);
+                return new BoundError();
+            }
+
+            for (int i = 0; i < args.Count; i++)
+            {
+                if (args[i].Type != fn.ParamList[i].Type)
+                {
+                    _diagnostics.Add(_src, $"Argument {i + 1} of function '{name}' must be of type '{fn.ParamList[i].Type}', but got '{args[i].Type}'.", expr.Args[i].Span);
+                    args[i] = new BoundError();
+                }
+            }
+
+            return new BoundCallExpr(fn, args);
         }
     }
 }

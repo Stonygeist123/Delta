@@ -126,6 +126,10 @@ namespace Delta.Analysis
                     }
                     break;
 
+                case ',':
+                    AddToken(NodeKind.Comma);
+                    break;
+
                 case ' ':
                 case '\t':
                 case '\n':
