@@ -87,10 +87,14 @@ namespace Delta.Binding
         private BoundFnDecl BindFnDecl(FnDecl decl)
         {
             string name = decl.Name.Lexeme;
-            BoundBlockStmt body = BindBlockStmt(decl.Body);
             List<ParamSymbol> paramList = decl.Parameters?.ParamList
                 .Select(param => new ParamSymbol(param.Name.Lexeme))
                 .ToList() ?? [];
+            _scope = new BoundScope(_scope);
+            paramList.ForEach(param => _scope.TryDeclareVar(param.Name, param.Type, param.Mutable, out _));
+            BoundBlockStmt body = BindBlockStmt(decl.Body);
+            _scope = _scope.Parent!;
+
             if (!_scope.TryDeclareFn(name, BoundType.Void, body, paramList, out FnSymbol? symbol))
                 _diagnostics.Add(_src, $"Function '{name}' is already defined.", decl.Name.Span);
             return new BoundFnDecl(symbol ?? new(name, BoundType.Void, paramList, body));

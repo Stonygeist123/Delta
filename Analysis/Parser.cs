@@ -83,7 +83,6 @@ namespace Delta.Analysis
                     Token name = Current;
                     if (!Match(NodeKind.Identifier))
                         return new ErrorStmt(fnToken, name);
-                    Stmt body = ParseBlockStmt();
                     ParameterList? parameters = null;
                     Token lParen = Current;
                     if (lParen.Kind == NodeKind.LParen)
@@ -96,9 +95,8 @@ namespace Delta.Analysis
                             if (paramList.Count > 0)
                             {
                                 comma = Advance();
-                                if (Current.Kind != NodeKind.Comma)
+                                if (comma.Kind != NodeKind.Comma)
                                     _diagnostics.Add(_src, "Expected ',' between parameters.", comma.Span);
-                                break;
                             }
 
                             Token paramName = Current;
@@ -114,6 +112,7 @@ namespace Delta.Analysis
                             return new ErrorStmt([fnToken, name, parameters]);
                     }
 
+                    Stmt body = ParseBlockStmt();
                     return body is BlockStmt block
                         ? new FnDecl(fnToken, name, parameters, block)
                         : new ErrorStmt(fnToken, name, body);
@@ -223,15 +222,14 @@ namespace Delta.Analysis
                 List<Arg> args = [];
                 while (!IsAtEnd() && Current.Kind != NodeKind.RParen)
                 {
-                    Expr arg = ParseExpr();
                     if (args.Count == 0)
-                        args.Add(new(null, arg));
+                        args.Add(new(null, ParseExpr()));
                     else
                     {
                         Token comma = Advance();
                         if (comma.Kind != NodeKind.Comma)
                             _diagnostics.Add(_src, "Expected ',' between arguments.", comma.Span);
-                        args.Add(new(comma, arg));
+                        args.Add(new(comma, ParseExpr()));
                     }
                 }
 
