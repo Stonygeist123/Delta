@@ -32,4 +32,9 @@
         public BoundExpr Condition { get; } = condition;
         public BoundStmt ThenStmt { get; } = thenStmt;
     }
+
+    internal sealed class BoundFnDecl(FnSymbol symbol) : BoundStmt
+    {
+        public FnSymbol Symbol { get; } = symbol;
+    }
 }

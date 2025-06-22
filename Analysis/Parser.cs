@@ -51,17 +51,7 @@ namespace Delta.Analysis
                 }
 
                 case NodeKind.LBrace:
-                {
-                    Token lBrace = Advance();
-                    List<Stmt> stmts = [];
-                    while (Current.Kind != NodeKind.RBrace && !IsAtEnd())
-                        stmts.Add(ParseStmt());
-
-                    Token rBrace = Current;
-                    if (!Match(NodeKind.RBrace))
-                        return new ErrorStmt([lBrace, .. stmts, rBrace]);
-                    return new BlockStmt(lBrace, stmts, rBrace);
-                }
+                    return ParseBlockStmt();
 
                 case NodeKind.If:
                 {
@@ -84,14 +74,41 @@ namespace Delta.Analysis
                     Token ifToken = Advance();
                     Expr? condition = Current.Kind == NodeKind.LBrace ? null : ParseExpr();
                     Stmt thenStmt = ParseStmt();
-
                     return new LoopStmt(ifToken, condition, thenStmt);
+                }
+
+                case NodeKind.Fn:
+                {
+                    Token fnToken = Advance();
+                    Token name = Current;
+                    if (!Match(NodeKind.Identifier))
+                        return new ErrorStmt(fnToken, name);
+                    Stmt body = ParseBlockStmt();
+                    return body is BlockStmt block
+                        ? new FnDecl(fnToken, name, block)
+                        : new ErrorStmt(fnToken, name, body);
                 }
 
                 default:
                     Expr expr = ParseExpr();
                     return new ExprStmt(expr);
             }
+        }
+
+        private Stmt ParseBlockStmt()
+        {
+            Token lBrace = Current;
+            if (!Match(NodeKind.LBrace))
+                return new ErrorStmt(lBrace);
+
+            List<Stmt> stmts = [];
+            while (Current.Kind != NodeKind.RBrace && !IsAtEnd())
+                stmts.Add(ParseStmt());
+
+            Token rBrace = Current;
+            if (!Match(NodeKind.RBrace))
+                return new ErrorStmt([lBrace, .. stmts, rBrace]);
+            return new BlockStmt(lBrace, stmts, rBrace);
         }
 
         public Expr ParseExpr(int parentPrecedence = 0)
@@ -169,6 +186,14 @@ namespace Delta.Analysis
                         precedence = Utility.GetBinOpPrecedence(token.Kind);
                     }
                 }
+            }
+            else if (expr is NameExpr n && token.Kind == NodeKind.LParen)
+            {
+                ++_current;
+                Token rParen = Current;
+                if (!Match(NodeKind.RParen))
+                    return new ErrorExpr(n, rParen);
+                expr = new CallExpr(n.Name, token, rParen);
             }
 
             return expr;

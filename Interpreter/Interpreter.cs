@@ -16,10 +16,12 @@ namespace Delta.Interpreter
                     break;
 
                 case BoundVarStmt:
+                {
                     VarSymbol symbol = ((BoundVarStmt)stmt).Symbol;
                     object? value = ExecuteExpr(((BoundVarStmt)stmt).Value) ?? throw new Exception($"Variable '{symbol.Name}' has no value.");
                     _scope.TryDeclareVar(symbol.Name, value);
                     break;
+                }
 
                 case BoundBlockStmt:
                 {
@@ -50,6 +52,14 @@ namespace Delta.Interpreter
                             break;
                         Execute(((BoundLoopStmt)stmt).ThenStmt);
                     }
+
+                    break;
+                }
+
+                case BoundFnDecl:
+                {
+                    FnSymbol symbol = ((BoundFnDecl)stmt).Symbol;
+                    _scope.TryDeclareFn(symbol.Name, symbol.Body);
                     break;
                 }
 
@@ -96,8 +106,18 @@ namespace Delta.Interpreter
                     return assignValue;
                 }
 
+                case BoundCallExpr:
+                {
+                    FnSymbol symbol = ((BoundCallExpr)expr).Symbol;
+                    _scope = new(_scope);
+                    object? result = null;
+                    Execute(symbol.Body);
+                    _scope = _scope.Parent!;
+                    return result;
+                }
+
                 default:
-                    return null;
+                    throw new Exception($"Unsupported expression: {expr.GetType().Name}.");
             }
         }
     }

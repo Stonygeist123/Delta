@@ -53,6 +53,15 @@
         public override TextSpan Span => new(Name.Span.Start, Value.Span.End);
     }
 
+    internal class CallExpr(Token name, Token lParen, Token rParen) : Expr
+    {
+        public override NodeKind Kind => NodeKind.CallExpr;
+        public Token Name { get; } = name;
+        public Token LParen { get; } = lParen;
+        public Token RParen { get; } = rParen;
+        public override TextSpan Span => new(Name.Span.Start, RParen.Span.End);
+    }
+
     internal class ErrorExpr(params List<Node> nodes) : Expr
     {
         public override NodeKind Kind => NodeKind.ErrorExpr;

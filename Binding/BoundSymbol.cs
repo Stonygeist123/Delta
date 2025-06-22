@@ -1,4 +1,6 @@
-﻿namespace Delta.Binding
+﻿using Delta.Binding.BoundNodes;
+
+namespace Delta.Binding
 {
     internal abstract class BoundSymbol(string name, BoundType type)
     {
@@ -9,5 +11,10 @@
     internal class VarSymbol(string name, BoundType type, bool mutable) : BoundSymbol(name, type)
     {
         public bool Mutable { get; } = mutable;
+    }
+
+    internal class FnSymbol(string name, BoundType type, BoundBlockStmt body) : BoundSymbol(name, type)
+    {
+        public BoundBlockStmt Body { get; } = body;
     }
 }

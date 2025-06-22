@@ -20,6 +20,7 @@ namespace Delta.Binding
             BlockStmt => BindBlockStmt((BlockStmt)stmt),
             IfStmt => BindIfStmt((IfStmt)stmt),
             LoopStmt => BindLoopStmt((LoopStmt)stmt),
+            FnDecl => BindFnDecl((FnDecl)stmt),
             _ => throw new NotSupportedException($"Unsupported statement type: {stmt.GetType()}")
         };
 
@@ -27,11 +28,25 @@ namespace Delta.Binding
         {
             BoundExpr boundValue = BindExpr(stmt.Value);
             string name = stmt.Name.Lexeme;
-            if (_scope.TryDeclareVar(name, boundValue.Type, stmt.MutToken is not null, out VarSymbol? symbol))
-                return new BoundVarStmt(symbol, boundValue);
+            if (!_scope.TryDeclareVar(name, boundValue.Type, stmt.MutToken is not null, out VarSymbol? symbol))
+            {
+                _diagnostics.Add(_src, $"Variable '{name}' is already defined.", stmt.Name.Span);
+                return new BoundVarStmt(new(name, boundValue.Type, stmt.MutToken is not null), boundValue);
+            }
 
-            _diagnostics.Add(_src, $"Variable '{name}' is already defined.", stmt.Name.Span);
-            return new BoundVarStmt(new(name, BoundType.Error, false), boundValue);
+            if (boundValue.Type != symbol.Type)
+            {
+                _diagnostics.Add(_src, $"Cannot assign value of type '{boundValue.Type}' to variable '{name}' of type '{symbol.Type}'.", stmt.Value.Span);
+                boundValue = new BoundError();
+            }
+
+            if (boundValue.Type == BoundType.Void)
+            {
+                _diagnostics.Add(_src, $"Variable '{name}' cannot be of type 'void'.", stmt.Value.Span);
+                boundValue = new BoundError();
+            }
+
+            return new BoundVarStmt(symbol, boundValue);
         }
 
         private BoundBlockStmt BindBlockStmt(BlockStmt stmt)
@@ -69,6 +84,15 @@ namespace Delta.Binding
             return new BoundLoopStmt(condition, thenStmt);
         }
 
+        private BoundFnDecl BindFnDecl(FnDecl decl)
+        {
+            string name = decl.Name.Lexeme;
+            BoundBlockStmt body = BindBlockStmt(decl.Body);
+            if (!_scope.TryDeclareFn(name, BoundType.Void, body, out FnSymbol? symbol))
+                _diagnostics.Add(_src, $"Function '{name}' is already defined.", decl.Name.Span);
+            return new BoundFnDecl(symbol ?? new(name, BoundType.Void, body));
+        }
+
         public BoundExpr BindExpr(Expr expr) => expr switch
         {
             LiteralExpr => BindLiteralExpr((LiteralExpr)expr),
@@ -77,6 +101,7 @@ namespace Delta.Binding
             GroupingExpr => BindGroupingExpr((GroupingExpr)expr),
             NameExpr => BindNameExpr((NameExpr)expr),
             AssignExpr => BindAssignExpr((AssignExpr)expr),
+            CallExpr => BindCallExpr((CallExpr)expr),
             _ => throw new NotSupportedException($"Unsupported expression type: {expr.GetType()}")
         };
 
@@ -154,6 +179,18 @@ namespace Delta.Binding
             }
 
             return new BoundAssignExpr(variable, value);
+        }
+
+        private BoundExpr BindCallExpr(CallExpr expr)
+        {
+            string name = expr.Name.Lexeme;
+            if (!_scope.TryGetFn(name, out FnSymbol? fn))
+            {
+                _diagnostics.Add(_src, $"Function '{name}' is not defined.", expr.Name.Span);
+                return new BoundError();
+            }
+
+            return new BoundCallExpr(fn);
         }
     }
 }

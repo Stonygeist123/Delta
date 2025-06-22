@@ -1,18 +1,19 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using Delta.Binding.BoundNodes;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Delta.Binding
 {
     internal class BoundScope(BoundScope? _parent)
     {
         private readonly Dictionary<string, VarSymbol> _variables = [];
+        private readonly Dictionary<string, FnSymbol> _fns = [];
         public Dictionary<string, VarSymbol> Variables => _variables;
+        public Dictionary<string, FnSymbol> Fns => _fns;
         public BoundScope? Parent { get; } = _parent;
 
         public bool TryDeclareVar(string name, BoundType type, bool mutable, [MaybeNullWhen(false)] out VarSymbol symbol)
-
         {
             if (HasVar(name))
-
             {
                 symbol = null;
                 return false;
@@ -22,10 +23,24 @@ namespace Delta.Binding
             return true;
         }
 
-        public bool TryDeclareVar(string name, BoundType type, bool mutable) => TryDeclareVar(name, type, mutable, out _);
+        public bool TryDeclareFn(string name, BoundType type, BoundBlockStmt body, [MaybeNullWhen(false)] out FnSymbol symbol)
+        {
+            if (HasFn(name))
+            {
+                symbol = null;
+                return false;
+            }
+
+            Fns.Add(name, symbol = new FnSymbol(name, type, body));
+            return true;
+        }
 
         public bool TryGetVar(string name, [MaybeNullWhen(false)] out VarSymbol variable) => Variables.TryGetValue(name, out variable) || Parent is not null && Parent.TryGetVar(name, out variable);
 
+        public bool TryGetFn(string name, [MaybeNullWhen(false)] out FnSymbol fn) => Fns.TryGetValue(name, out fn) || Parent is not null && Parent.TryGetFn(name, out fn);
+
         public bool HasVar(string name) => Variables.ContainsKey(name) || Parent is not null && Parent.HasVar(name);
+
+        public bool HasFn(string name) => Fns.ContainsKey(name) || Parent is not null && Parent.HasFn(name);
     }
 }

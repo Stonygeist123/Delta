@@ -45,6 +45,12 @@
         public override BoundType Type => Symbol.Type;
     }
 
+    internal sealed class BoundCallExpr(FnSymbol symbol) : BoundExpr
+    {
+        public FnSymbol Symbol { get; } = symbol;
+        public override BoundType Type => Symbol.Type;
+    }
+
     internal sealed class BoundError() : BoundExpr
     {
         public override BoundType Type => BoundType.Error;

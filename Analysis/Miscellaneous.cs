@@ -56,6 +56,7 @@ namespace Delta.Analysis
             NodeKind.If => "if",
             NodeKind.Else => "else",
             NodeKind.Loop => "loop",
+            NodeKind.Fn => "fn",
             _ => null,
         };
 
@@ -64,10 +65,11 @@ namespace Delta.Analysis
             { "var", NodeKind.Var },
             { "mut", NodeKind.Mut },
             { "true", NodeKind.True },
-            { "false", NodeKind.False},
-            { "if", NodeKind.If},
-            { "else", NodeKind.Else},
-            { "loop", NodeKind.Loop},
+            { "false", NodeKind.False },
+            { "if", NodeKind.If },
+            { "else", NodeKind.Else },
+            { "loop", NodeKind.Loop },
+            { "fn", NodeKind.Fn },
         };
     }
 

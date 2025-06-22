@@ -59,6 +59,15 @@
         public override TextSpan Span => new(LoopToken.Span.Start, ThenStmt.Span.End);
     }
 
+    internal class FnDecl(Token fnToken, Token name, BlockStmt body) : Stmt
+    {
+        public Token FnToken { get; } = fnToken;
+        public Token Name { get; } = name;
+        public BlockStmt Body { get; } = body;
+        public override NodeKind Kind => NodeKind.FnDecl;
+        public override TextSpan Span => new(FnToken.Span.Start, Body.Span.End);
+    }
+
     internal class ErrorStmt(params List<Node?> nodes) : Stmt
     {
         public List<Node?> Nodes { get; } = nodes;
