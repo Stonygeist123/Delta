@@ -33,7 +33,13 @@ namespace Delta.Analysis
                     break;
 
                 case '-':
-                    AddToken(NodeKind.Minus);
+                    if (Next == '>')
+                    {
+                        ++_current;
+                        AddToken(NodeKind.Arrow);
+                    }
+                    else
+                        AddToken(NodeKind.Minus);
                     break;
 
                 case '*':
@@ -132,6 +138,10 @@ namespace Delta.Analysis
 
                 case ':':
                     AddToken(NodeKind.Colon);
+                    break;
+
+                case ';':
+                    AddToken(NodeKind.Semicolon);
                     break;
 
                 case ' ':

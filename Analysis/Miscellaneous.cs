@@ -50,6 +50,9 @@ namespace Delta.Analysis
             NodeKind.RBrace => "}",
             NodeKind.Eq => "=",
             NodeKind.Comma => ",",
+            NodeKind.Colon => ":",
+            NodeKind.Arrow => "->",
+            NodeKind.Semicolon => ";",
             NodeKind.True => "true",
             NodeKind.False => "false",
             NodeKind.Var => "var",
@@ -58,6 +61,7 @@ namespace Delta.Analysis
             NodeKind.Else => "else",
             NodeKind.Loop => "loop",
             NodeKind.Fn => "fn",
+            NodeKind.Ret => "ret",
             _ => null,
         };
 
@@ -71,6 +75,7 @@ namespace Delta.Analysis
             { "else", NodeKind.Else },
             { "loop", NodeKind.Loop },
             { "fn", NodeKind.Fn },
+            { "ret", NodeKind.Ret }
         };
     }
 

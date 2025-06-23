@@ -4,12 +4,12 @@
     {
     }
 
-    internal class ExprStmt(Expr expr) : Stmt
+    internal class ExprStmt(Expr expr, Token? semicolon) : Stmt
     {
         public Expr Expr { get; } = expr;
-
+        public Token? Semicolon { get; } = semicolon;
         public override NodeKind Kind => NodeKind.ExprStmt;
-        public override TextSpan Span => Expr.Span;
+        public override TextSpan Span => new(Expr.Span.Start, (Semicolon?.Span ?? Expr.Span).End);
     }
 
     internal class VarStmt(Token varToken, Token? mutToken, Token name, TypeClause? typeClause, Token eqToken, Expr value) : Stmt
@@ -60,15 +60,25 @@
         public override TextSpan Span => new(LoopToken.Span.Start, ThenStmt.Span.End);
     }
 
-    internal class FnDecl(Token fnToken, Token name, ParameterList? parameters, BlockStmt body) : Stmt
+    internal class FnDecl(Token fnToken, Token name, ParameterList? parameters, TypeClause returnType, BlockStmt body) : Stmt
     {
         public Token FnToken { get; } = fnToken;
         public Token Name { get; } = name;
         public ParameterList? Parameters { get; } = parameters;
+        public TypeClause ReturnType { get; } = returnType;
         public BlockStmt Body { get; } = body;
         public override NodeKind Kind => NodeKind.FnDecl;
 
         public override TextSpan Span => new(FnToken.Span.Start, Body.Span.End);
+    }
+
+    internal class RetStmt(Token retToken, Expr? value, Token semicolon) : Stmt
+    {
+        public Token RetToken { get; } = retToken;
+        public Expr? Value { get; } = value;
+        public Token Semicolon { get; } = semicolon;
+        public override NodeKind Kind => NodeKind.RetStmt;
+        public override TextSpan Span => new(RetToken.Span.Start, Semicolon.Span.End);
     }
 
     internal class ErrorStmt(params List<Node?> nodes) : Stmt

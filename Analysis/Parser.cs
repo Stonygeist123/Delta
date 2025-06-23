@@ -109,20 +109,36 @@ namespace Delta.Analysis
                         }
 
                         Token rParen = Current;
-                        parameters = new ParameterList(lParen, paramList, rParen);
                         if (!Match(NodeKind.RParen))
-                            return new ErrorStmt([fnToken, name, parameters]);
+                            return new ErrorStmt([fnToken, name, lParen, .. paramList, rParen]);
+                        parameters = new ParameterList(lParen, paramList, rParen);
                     }
 
+                    TypeClause returnType = ParseType(NodeKind.Arrow);
                     Stmt body = ParseBlockStmt();
                     return body is BlockStmt block
-                        ? new FnDecl(fnToken, name, parameters, block)
+                        ? new FnDecl(fnToken, name, parameters, returnType, block)
                         : new ErrorStmt(fnToken, name, body);
                 }
 
+                case NodeKind.Ret:
+                {
+                    Token retToken = Advance();
+                    Expr? value = Current.Kind == NodeKind.Semicolon ? null : ParseExpr();
+                    Token semicolon = Advance();
+                    if (semicolon.Kind != (NodeKind.Semicolon))
+                        _diagnostics.Add(_src, "Expected ';' after return statement.", semicolon.Span);
+                    return new RetStmt(retToken, value, semicolon);
+                }
+
                 default:
+                {
                     Expr expr = ParseExpr();
-                    return new ExprStmt(expr);
+                    Token? semicolon = null;
+                    if (Current.Kind == NodeKind.Semicolon)
+                        semicolon = Advance();
+                    return new ExprStmt(expr, semicolon);
+                }
             }
         }
 

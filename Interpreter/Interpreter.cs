@@ -3,9 +3,12 @@ using Delta.Binding.BoundNodes;
 
 namespace Delta.Interpreter
 {
-    internal class Interpreter(Scope _globals)
+    internal class Interpreter(Scope _globals, FnSymbol? fn = null)
     {
         private Scope _scope = _globals;
+        private readonly FnSymbol? _fn = fn;
+        private object? _retValue = null;
+        public object? RetValue => _retValue;
 
         public void Execute(BoundStmt stmt)
         {
@@ -63,6 +66,20 @@ namespace Delta.Interpreter
                     break;
                 }
 
+                case BoundRetStmt:
+                {
+                    if (_fn is null)
+                        throw new Exception($"Cannot return outside of functiob.");
+
+                    BoundExpr? returnValue = ((BoundRetStmt)stmt).Value;
+                    if (returnValue is not null)
+                    {
+                        object? value = ExecuteExpr(returnValue);
+                        _retValue = value;
+                    }
+                    return;
+                }
+
                 default:
                     throw new Exception($"Unsupported statement.");
             }
@@ -108,15 +125,13 @@ namespace Delta.Interpreter
 
                 case BoundCallExpr:
                 {
-                    FnSymbol symbol = ((BoundCallExpr)expr).Symbol;
+                    FnSymbol fnSymbol = ((BoundCallExpr)expr).Symbol;
                     _scope = new(_scope);
                     object? result = null;
-
                     List<object?> args = ((BoundCallExpr)expr).Args.Select(ExecuteExpr).ToList();
-                    ;
-                    if (symbol is BuiltInFn)
+                    if (fnSymbol is BuiltInFn)
                     {
-                        switch (symbol.Name)
+                        switch (fnSymbol.Name)
                         {
                             case "print":
                             {
@@ -125,15 +140,18 @@ namespace Delta.Interpreter
                                 break;
                             }
                             default:
-                                throw new Exception($"Unsupported built-in function '{symbol.Name}'.");
+                                throw new Exception($"Unsupported built-in function '{fnSymbol.Name}'.");
                         }
                     }
                     else
                     {
                         for (int i = 0; i < args.Count; i++)
-                            _scope.TryDeclareVar(symbol.ParamList[i].Name, args[i]!);
-                        Execute(symbol.Body!);
+                            _scope.TryDeclareVar(fnSymbol.ParamList[i].Name, args[i]!);
+                        Interpreter interpreter = new(_scope, fnSymbol);
+                        interpreter.Execute(fnSymbol.Body!);
+                        result = interpreter.RetValue;
                     }
+
                     _scope = _scope.Parent!;
                     return result;
                 }

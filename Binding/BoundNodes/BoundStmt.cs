@@ -37,4 +37,9 @@
     {
         public FnSymbol Symbol { get; } = symbol;
     }
+
+    internal sealed class BoundRetStmt(BoundExpr? value) : BoundStmt
+    {
+        public BoundExpr? Value { get; } = value;
+    }
 }

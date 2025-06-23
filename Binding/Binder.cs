@@ -5,10 +5,11 @@ using Delta.Diagnostics;
 
 namespace Delta.Binding
 {
-    internal class Binder(string _src, BoundScope _globalScope)
+    internal class Binder(string _src, BoundScope _globalScope, FnSymbol? fnSymbol = null)
     {
         private readonly DiagnosticBag _diagnostics = [];
         private BoundScope _scope = _globalScope;
+        private readonly FnSymbol? _fnSymbol = fnSymbol;
         public DiagnosticBag Diagnostics => _diagnostics;
 
         public List<BoundStmt> Bind(List<Stmt> stmts) => stmts.Select(BindStmt).ToList();
@@ -21,6 +22,7 @@ namespace Delta.Binding
             IfStmt => BindIfStmt((IfStmt)stmt),
             LoopStmt => BindLoopStmt((LoopStmt)stmt),
             FnDecl => BindFnDecl((FnDecl)stmt),
+            RetStmt => BindRetStmt((RetStmt)stmt),
             _ => throw new NotSupportedException($"Unsupported statement type: {stmt.GetType()}")
         };
 
@@ -89,17 +91,55 @@ namespace Delta.Binding
         private BoundFnDecl BindFnDecl(FnDecl decl)
         {
             string name = decl.Name.Lexeme;
+            BoundType retType = BindType(decl.ReturnType, true);
             List<ParamSymbol> paramList = decl.Parameters?.ParamList
                 .Select(param => new ParamSymbol(param.Name.Lexeme, BindType(param.TypeClause)))
                 .ToList() ?? [];
-            _scope = new BoundScope(_scope);
-            paramList.ForEach(param => _scope.TryDeclareVar(param.Name, param.Type, param.Mutable, out _));
-            BoundBlockStmt body = BindBlockStmt(decl.Body);
-            _scope = _scope.Parent!;
 
-            if (!_scope.TryDeclareFn(name, BoundType.Void, body, paramList, out FnSymbol? symbol))
+            Binder binder = new(_src, new(_scope), new(name, retType, paramList, null));
+            paramList.ForEach(param => binder._scope.TryDeclareVar(param.Name, param.Type, param.Mutable, out _));
+            BoundBlockStmt body = binder.BindBlockStmt(decl.Body);
+            _diagnostics.AddAll(binder.Diagnostics);
+
+            FnSymbol fn = new(name, retType, paramList, body);
+            FnSymbol? symbol = null;
+            if (binder.Diagnostics.Any())
+            {
+                if (_scope.TryGetFn(name, out symbol))
+                    _diagnostics.Add(_src, $"Function '{name}' is already defined.", decl.Name.Span);
+            }
+            else if (!_scope.TryDeclareFn(fn, out symbol))
                 _diagnostics.Add(_src, $"Function '{name}' is already defined.", decl.Name.Span);
-            return new BoundFnDecl(symbol ?? new(name, BoundType.Void, paramList, body));
+            return new BoundFnDecl(symbol ?? fn);
+        }
+
+        private BoundRetStmt BindRetStmt(RetStmt retStmt)
+        {
+            if (_fnSymbol is null)
+            {
+                _diagnostics.Add(_src, "Return statement can only be used inside a function.", retStmt.RetToken.Span);
+                return new BoundRetStmt(new BoundError());
+            }
+
+            BoundExpr? value = retStmt.Value is null ? null : BindExpr(retStmt.Value);
+            if (value is null && _fnSymbol.Type != BoundType.Void)
+            {
+                _diagnostics.Add(_src, $"Expected return value.", retStmt.Span);
+                value = new BoundError();
+            }
+
+            if (value is not null && value.Type != BoundType.Void && _fnSymbol.Type == BoundType.Void)
+            {
+                _diagnostics.Add(_src, $"Cannot return from void function '{_fnSymbol.Name}'.", retStmt.Span);
+                value = new BoundError();
+            }
+            else if (value is not null && value.Type != _fnSymbol.Type)
+            {
+                _diagnostics.Add(_src, $"Cannot return value of type '{value.Type}' from function '{_fnSymbol.Name}'. Expected '{_fnSymbol.Type}'.", retStmt.Span);
+                value = new BoundError();
+            }
+
+            return new BoundRetStmt(value);
         }
 
         public BoundExpr BindExpr(Expr expr) => expr switch
@@ -207,13 +247,11 @@ namespace Delta.Binding
             }
 
             for (int i = 0; i < args.Count; i++)
-            {
                 if (args[i].Type != fn.ParamList[i].Type)
                 {
-                    _diagnostics.Add(_src, $"Argument {i + 1} of function '{name}' must be of type '{fn.ParamList[i].Type}', but got '{args[i].Type}'.", expr.Args[i].Span);
+                    _diagnostics.Add(_src, $"Argument '{fn.ParamList[i].Name}' of function '{name}' must be of type '{fn.ParamList[i].Type}', but got '{args[i].Type}'.", expr.Args[i].Span);
                     args[i] = new BoundError();
                 }
-            }
 
             return new BoundCallExpr(fn, args);
         }

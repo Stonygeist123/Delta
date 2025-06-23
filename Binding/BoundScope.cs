@@ -1,5 +1,4 @@
-﻿using Delta.Binding.BoundNodes;
-using Delta.Environment;
+﻿using Delta.Environment;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Delta.Binding
@@ -24,15 +23,15 @@ namespace Delta.Binding
             return true;
         }
 
-        public bool TryDeclareFn(string name, BoundType type, BoundBlockStmt body, List<ParamSymbol> paramList, [MaybeNullWhen(false)] out FnSymbol symbol)
+        public bool TryDeclareFn(FnSymbol fn, [MaybeNullWhen(false)] out FnSymbol symbol)
         {
-            if (HasFn(name))
+            if (HasFn(fn.Name))
             {
                 symbol = null;
                 return false;
             }
 
-            Fns.Add(name, symbol = new FnSymbol(name, type, paramList, body));
+            Fns.Add(fn.Name, symbol = fn);
             return true;
         }
 
