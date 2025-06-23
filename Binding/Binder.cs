@@ -28,10 +28,12 @@ namespace Delta.Binding
         {
             BoundExpr boundValue = BindExpr(stmt.Value);
             string name = stmt.Name.Lexeme;
-            if (!_scope.TryDeclareVar(name, boundValue.Type, stmt.MutToken is not null, out VarSymbol? symbol))
+            BoundType type = stmt.TypeClause is null ? boundValue.Type : BindType(stmt.TypeClause);
+
+            if (!_scope.TryDeclareVar(name, type, stmt.MutToken is not null, out VarSymbol? symbol))
             {
                 _diagnostics.Add(_src, $"Variable '{name}' is already defined.", stmt.Name.Span);
-                return new BoundVarStmt(new(name, boundValue.Type, stmt.MutToken is not null), boundValue);
+                return new BoundVarStmt(new(name, type, stmt.MutToken is not null), boundValue);
             }
 
             if (boundValue.Type != symbol.Type)
@@ -42,7 +44,7 @@ namespace Delta.Binding
 
             if (boundValue.Type == BoundType.Void)
             {
-                _diagnostics.Add(_src, $"Variable '{name}' cannot be of type 'void'.", stmt.Value.Span);
+                _diagnostics.Add(_src, $"Value assigned to '{name}' cannot be of type 'void'.", stmt.Value.Span);
                 boundValue = new BoundError();
             }
 
@@ -88,7 +90,7 @@ namespace Delta.Binding
         {
             string name = decl.Name.Lexeme;
             List<ParamSymbol> paramList = decl.Parameters?.ParamList
-                .Select(param => new ParamSymbol(param.Name.Lexeme))
+                .Select(param => new ParamSymbol(param.Name.Lexeme, BindType(param.TypeClause)))
                 .ToList() ?? [];
             _scope = new BoundScope(_scope);
             paramList.ForEach(param => _scope.TryDeclareVar(param.Name, param.Type, param.Mutable, out _));
@@ -214,6 +216,24 @@ namespace Delta.Binding
             }
 
             return new BoundCallExpr(fn, args);
+        }
+
+        private BoundType BindType(TypeClause typeClause, bool canBeVoid = false)
+        {
+            BoundType? type = BoundType.Bind(typeClause.Type!.Lexeme);
+            if (type is null)
+            {
+                _diagnostics.Add(_src, $"Unknown type '{typeClause.Type.Lexeme}'.", typeClause.Type.Span);
+                return BoundType.Error;
+            }
+
+            if (type == BoundType.Void && !canBeVoid)
+            {
+                _diagnostics.Add(_src, "Type 'void' is not allowed here.", typeClause.Type.Span);
+                return BoundType.Error;
+            }
+
+            return type.Value;
         }
     }
 }

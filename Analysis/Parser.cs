@@ -42,12 +42,13 @@ namespace Delta.Analysis
                     if (!Match(NodeKind.Identifier))
                         return new ErrorStmt(varToken, name);
 
+                    TypeClause? typeClause = ParseOptType();
                     Token eqToken = Current;
                     if (!Match(NodeKind.Eq))
                         return new ErrorStmt(varToken, name, eqToken);
 
                     Expr value = ParseExpr();
-                    return new VarStmt(varToken, mutToken, name, eqToken, value);
+                    return new VarStmt(varToken, mutToken, name, typeClause, eqToken, value);
                 }
 
                 case NodeKind.LBrace:
@@ -100,9 +101,10 @@ namespace Delta.Analysis
                             }
 
                             Token paramName = Current;
-                            Param param = new(comma, paramName);
                             if (!Match(NodeKind.Identifier))
-                                return new ErrorStmt([fnToken, name, lParen, .. paramList, param]);
+                                return new ErrorStmt([fnToken, name, lParen, .. paramList, comma, paramName]);
+                            TypeClause typeClause = ParseType(NodeKind.Colon);
+                            Param param = new(comma, paramName, typeClause);
                             paramList.Add(param);
                         }
 
@@ -246,6 +248,19 @@ namespace Delta.Analysis
             }
 
             return expr;
+        }
+
+        private TypeClause? ParseOptType(NodeKind markKind = NodeKind.Colon) => Current.Kind != markKind ? null : ParseType(markKind);
+
+        private TypeClause ParseType(NodeKind markKind = NodeKind.Colon)
+        {
+            Token mark = Current;
+            if (!Match(markKind))
+                return new TypeClause(mark, null);
+            Token type = Advance();
+            if (type.Kind != NodeKind.Identifier)
+                _diagnostics.Add(_src, $"Expected type name after '{Utility.GetLexeme(markKind)}'.", Current.Span);
+            return new TypeClause(mark, type);
         }
 
         private Token Current => _tokens[_current];

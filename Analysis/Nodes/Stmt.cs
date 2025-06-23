@@ -12,11 +12,12 @@
         public override TextSpan Span => Expr.Span;
     }
 
-    internal class VarStmt(Token varToken, Token? mutToken, Token name, Token eqToken, Expr value) : Stmt
+    internal class VarStmt(Token varToken, Token? mutToken, Token name, TypeClause? typeClause, Token eqToken, Expr value) : Stmt
     {
         public Token VarToken => varToken;
         public Token? MutToken { get; } = mutToken;
         public Token Name { get; } = name;
+        public TypeClause? TypeClause { get; } = typeClause;
         public Token EqToken { get; } = eqToken;
         public Expr Value => value;
         public override NodeKind Kind => NodeKind.VarStmt;
@@ -57,23 +58,6 @@
         public Stmt ThenStmt { get; } = thenStmt;
         public override NodeKind Kind => NodeKind.LoopStmt;
         public override TextSpan Span => new(LoopToken.Span.Start, ThenStmt.Span.End);
-    }
-
-    internal class Param(Token? comma, Token name) : Node
-    {
-        public Token? Comma { get; } = comma;
-        public Token Name { get; } = name;
-        public override NodeKind Kind => NodeKind.Param;
-        public override TextSpan Span => new((Comma?.Span ?? Name.Span).Start, Name.Span.End);
-    }
-
-    internal class ParameterList(Token lParen, List<Param> paramList, Token rParen) : Node
-    {
-        public Token LParen { get; } = lParen;
-        public List<Param> ParamList { get; } = paramList;
-        public Token RParen { get; } = rParen;
-        public override NodeKind Kind => NodeKind.ParameterList;
-        public override TextSpan Span => new(LParen.Span.Start, RParen.Span.End);
     }
 
     internal class FnDecl(Token fnToken, Token name, ParameterList? parameters, BlockStmt body) : Stmt

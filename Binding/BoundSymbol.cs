@@ -13,7 +13,7 @@ namespace Delta.Binding
         public bool Mutable { get; } = mutable;
     }
 
-    internal class ParamSymbol(string name) : VarSymbol(name, BoundType.Number, true)
+    internal class ParamSymbol(string name, BoundType type) : VarSymbol(name, type, true)
     {
     }
 
