@@ -1,7 +1,7 @@
 ﻿using Delta.Binding;
 using Delta.Binding.BoundNodes;
 
-namespace Delta.Interpreter
+namespace Delta.Evaluation
 {
     internal class Interpreter(Scope _globals, FnSymbol? fn = null)
     {

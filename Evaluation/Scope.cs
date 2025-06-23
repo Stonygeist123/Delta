@@ -1,6 +1,6 @@
 ﻿using Delta.Binding.BoundNodes;
 
-namespace Delta.Interpreter
+namespace Delta.Evaluation
 {
     internal class Scope(Scope? parent)
     {
@@ -27,7 +27,7 @@ namespace Delta.Interpreter
         }
 
         public bool TryGetVar(string name, out object? value) =>
-            _variables.TryGetValue(name, out value) || (Parent is not null && Parent.TryGetVar(name, out value));
+            _variables.TryGetValue(name, out value) || Parent is not null && Parent.TryGetVar(name, out value);
 
         public bool TryAssign(string name, object value)
         {
@@ -41,9 +41,9 @@ namespace Delta.Interpreter
         }
 
         public bool HasVar(string name) =>
-            _variables.ContainsKey(name) || (Parent is not null && Parent.HasVar(name));
+            _variables.ContainsKey(name) || Parent is not null && Parent.HasVar(name);
 
         public bool HasFn(string name) =>
-            _fns.ContainsKey(name) || (Parent is not null && Parent.HasFn(name));
+            _fns.ContainsKey(name) || Parent is not null && Parent.HasFn(name);
     }
 }
