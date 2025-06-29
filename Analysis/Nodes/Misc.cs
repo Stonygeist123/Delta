@@ -10,7 +10,6 @@ namespace Delta.Analysis.Nodes
         public Token? Comma = comma;
         public Expr Expr = arg;
         public override NodeKind Kind => NodeKind.Arg;
-        public override TextSpan Span => new((Comma?.Span ?? Expr.Span).Start, Expr.Span.End);
     }
 
     internal class Param(SyntaxTree syntaxTree, Token? comma, Token name, TypeClause typeClause) : Node(syntaxTree)
@@ -19,7 +18,6 @@ namespace Delta.Analysis.Nodes
         public Token Name { get; } = name;
         public TypeClause TypeClause { get; } = typeClause;
         public override NodeKind Kind => NodeKind.Param;
-        public override TextSpan Span => new((Comma?.Span ?? Name.Span).Start, TypeClause.Span.End);
     }
 
     internal class ParameterList(SyntaxTree syntaxTree, Token lParen, List<Param> paramList, Token rParen) : Node(syntaxTree)
@@ -28,7 +26,6 @@ namespace Delta.Analysis.Nodes
         public List<Param> ParamList { get; } = paramList;
         public Token RParen { get; } = rParen;
         public override NodeKind Kind => NodeKind.ParameterList;
-        public override TextSpan Span => new(LParen.Span.Start, RParen.Span.End);
     }
 
     internal class TypeClause(SyntaxTree syntaxTree, Token mark, Token type) : Node(syntaxTree)
@@ -36,7 +33,6 @@ namespace Delta.Analysis.Nodes
         public Token Mark { get; } = mark;
         public Token Name { get; } = type;
         public override NodeKind Kind => NodeKind.TypeClause;
-        public override TextSpan Span => new(Mark.Span.Start, (Name?.Span ?? Mark.Span).End);
     }
 
     internal sealed class CompilationUnit(SyntaxTree syntaxTree, ImmutableArray<MemberNode> members, Token eofToken) : Node(syntaxTree)

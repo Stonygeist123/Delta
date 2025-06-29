@@ -83,11 +83,13 @@ namespace Delta.Analysis
         public static readonly List<NodeKind> LiteralKinds = [NodeKind.Number, NodeKind.String, NodeKind.True, NodeKind.False];
     }
 
-    internal readonly struct TextSpan(int start, int end)
+    internal readonly struct TextSpan(int start, int length)
     {
         public int Start { get; } = start;
-        public int End { get; } = end;
-        public int Length => End - Start;
+        public int Length { get; } = length;
+        public int End => Start + Length;
+
+        public static TextSpan From(int start, int end) => new(start, end - start);
     }
 
     internal sealed class SourceText

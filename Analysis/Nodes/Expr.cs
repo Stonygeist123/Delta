@@ -17,7 +17,6 @@
         public Expr Left { get; } = left;
         public Token Op { get; } = op;
         public Expr Right { get; } = right;
-        public override TextSpan Span => new(Left.Span.Start, Right.Span.End);
     }
 
     internal class UnaryExpr(SyntaxTree syntaxTree, Token op, Expr operand) : Expr(syntaxTree)
@@ -25,7 +24,6 @@
         public override NodeKind Kind => NodeKind.UnaryExpr;
         public Token Op { get; } = op;
         public Expr Operand { get; } = operand;
-        public override TextSpan Span => new(Op.Span.Start, Operand.Span.End);
     }
 
     internal class GroupingExpr(SyntaxTree syntaxTree, Token lParen, Expr expression, Token rParen) : Expr(syntaxTree)
@@ -34,14 +32,12 @@
         public Token LParen { get; } = lParen;
         public Expr Expression { get; } = expression;
         public Token RParen { get; } = rParen;
-        public override TextSpan Span => new(LParen.Span.Start, RParen.Span.End);
     }
 
     internal class NameExpr(SyntaxTree syntaxTree, Token name) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.NameExpr;
         public Token Name { get; } = name;
-        public override TextSpan Span => Name.Span;
     }
 
     internal class AssignExpr(SyntaxTree syntaxTree, Token name, Token eqToken, Expr value) : Expr(syntaxTree)
@@ -50,7 +46,6 @@
         public Token Name { get; } = name;
         public Token EqToken { get; } = eqToken;
         public Expr Value { get; } = value;
-        public override TextSpan Span => new(Name.Span.Start, Value.Span.End);
     }
 
     internal class CallExpr(SyntaxTree syntaxTree, Token name, Token lParen, List<Arg> args, Token rParen) : Expr(syntaxTree)
@@ -60,14 +55,11 @@
         public Token LParen { get; } = lParen;
         public List<Arg> Args { get; } = args;
         public Token RParen { get; } = rParen;
-        public override TextSpan Span => new(Name.Span.Start, RParen.Span.End);
     }
 
     internal class ErrorExpr(SyntaxTree syntaxTree, params List<Node> nodes) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.ErrorExpr;
         public List<Node> Nodes { get; } = nodes;
-
-        public override TextSpan Span => new(Nodes.First().Span.Start, Nodes.Last().Span.End);
     }
 }

@@ -112,8 +112,8 @@ namespace Delta.IO
                 string where = $"{lineNumber}| ";
                 writer.Write(where);
 
-                TextSpan prefixSpan = new(line.Start, span.Start);
-                TextSpan suffixSpan = new(span.End, line.End);
+                TextSpan prefixSpan = TextSpan.From(line.Start, span.Start);
+                TextSpan suffixSpan = TextSpan.From(span.End, line.End);
 
                 string prefix = source.ToString(prefixSpan),
                     error = source.ToString(span),

@@ -22,7 +22,7 @@ namespace Delta.Analysis
                 GetToken();
             }
 
-            _tokens.Add(new(_syntaxTree, NodeKind.EOF, "\0", new(_current, _current + 1)));
+            _tokens.Add(new(_syntaxTree, NodeKind.EOF, "\0", new(_current, 1)));
             return _tokens.ToImmutable();
         }
 
@@ -228,6 +228,6 @@ namespace Delta.Analysis
 
         private string Lexeme() => Src[_start.._current];
 
-        private TextSpan GetSpan() => new(_start, _current);
+        private TextSpan GetSpan() => new(_start, _current - _start);
     }
 }
