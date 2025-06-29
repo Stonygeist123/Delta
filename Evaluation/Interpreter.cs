@@ -1,88 +1,120 @@
-﻿using Delta.Binding;
+﻿using Delta.Analysis;
+using Delta.Binding;
 using Delta.Binding.BoundNodes;
+using Delta.Symbols;
 
 namespace Delta.Evaluation
 {
-    internal class Interpreter(Scope _globals, FnSymbol? fn = null)
+    internal class Interpreter
     {
-        private Scope _scope = _globals;
-        private readonly FnSymbol? _fn = fn;
-        private object? _retValue = null;
-        public object? RetValue => _retValue;
+        private readonly Stack<Dictionary<VarSymbol, object?>> _locals = new();
+        private readonly Dictionary<FnSymbol, BoundBlockStmt> _fns = [];
+        public BoundProgram _program;
+        public Dictionary<VarSymbol, object?> _globals;
+        private object? _lastValue = null;
 
-        public void Execute(BoundStmt stmt)
+        public Interpreter(BoundProgram program, Dictionary<VarSymbol, object?> variables)
         {
-            switch (stmt)
+            _program = program;
+            _globals = variables;
+            _locals.Push([]);
+            BoundProgram? current = program;
+            KeyValuePair<FnSymbol, BoundBlockStmt>? evalFn = current.Functions.Any(fn => fn.Key.Name == "$eval") ? current.Functions.Single(fn => fn.Key.Name == "$eval") : null;
+            if (evalFn.HasValue)
+                _fns.Add(evalFn.Value.Key, evalFn.Value.Value);
+
+            while (current is not null)
             {
-                case BoundExprStmt:
-                    ExecuteExpr(((BoundExprStmt)stmt).Expr);
-                    break;
-
-                case BoundVarStmt:
-                {
-                    VarSymbol symbol = ((BoundVarStmt)stmt).Symbol;
-                    object? value = ExecuteExpr(((BoundVarStmt)stmt).Value) ?? throw new Exception($"Variable '{symbol.Name}' has no value.");
-                    _scope.TryDeclareVar(symbol.Name, value);
-                    break;
-                }
-
-                case BoundBlockStmt:
-                {
-                    _scope = new(_scope);
-                    foreach (BoundStmt childStmt in ((BoundBlockStmt)stmt).Stmts)
-                        Execute(childStmt);
-                    _scope = _scope.Parent!;
-                    break;
-                }
-
-                case BoundIfStmt:
-                {
-                    object? conditionValue = ExecuteExpr(((BoundIfStmt)stmt).Condition) ?? throw new Exception($"Condition has no value.");
-                    BoundStmt? elseClause = ((BoundIfStmt)stmt).ElseClause;
-                    if (conditionValue is bool condition && condition)
-                        Execute(((BoundIfStmt)stmt).ThenStmt);
-                    else if (elseClause is not null)
-                        Execute(elseClause);
-                    break;
-                }
-
-                case BoundLoopStmt:
-                {
-                    while (true)
-                    {
-                        object? conditionValue = ExecuteExpr(((BoundLoopStmt)stmt).Condition);
-                        if (conditionValue is not bool condition || !condition)
-                            break;
-                        Execute(((BoundLoopStmt)stmt).ThenStmt);
-                    }
-
-                    break;
-                }
-
-                case BoundFnDecl:
-                {
-                    FnSymbol symbol = ((BoundFnDecl)stmt).Symbol;
-                    _scope.TryDeclareFn(symbol.Name, symbol.Body!);
-                    break;
-                }
-
-                case BoundRetStmt:
-                {
-                    if (_fn is null)
-                        throw new Exception($"Cannot return outside of functiob.");
-
-                    BoundExpr? returnValue = ((BoundRetStmt)stmt).Value;
-                    if (returnValue is not null)
-                    {
-                        object? value = ExecuteExpr(returnValue);
-                        _retValue = value;
-                    }
-                    return;
-                }
-
-                default:
-                    throw new Exception($"Unsupported statement.");
+                foreach ((FnSymbol fn, BoundBlockStmt body) in current.Functions.Where(fn => fn.Key.Name != "$eval"))
+                    _fns.TryAdd(fn, body);
+                current = current.Previous;
             }
+        }
+
+        public object? Execute()
+        {
+            FnSymbol? fn = _program.ScriptFn;
+            return fn is null ? null : ExecuteStmt(_fns[fn]);
+        }
+
+        public object? ExecuteStmt(BoundBlockStmt stmt)
+        {
+            Dictionary<LabelSymbol, int> labelToIndex = [];
+            for (int i = 0; i < stmt.Stmts.Length; ++i)
+                if (stmt.Stmts[i] is BoundLabelStmt l)
+                    labelToIndex.Add(l.Label, i + 1);
+
+            int index = 0;
+            while (index < stmt.Stmts.Length)
+            {
+                BoundStmt s = stmt.Stmts[index];
+                switch (s)
+                {
+                    case BoundLabelStmt:
+                    {
+                        ++index;
+                        break;
+                    }
+                    case BoundGotoStmt g:
+                    {
+                        index = labelToIndex[g.Label];
+                        break;
+                    }
+                    case BoundCondGotoStmt cg:
+                    {
+                        bool condition = (bool)ExecuteExpr(cg.Condition)!;
+                        if (condition == cg.JumpIfTrue)
+                            index = labelToIndex[cg.Label];
+                        else
+                            ++index;
+                        break;
+                    }
+
+                    case BoundExprStmt:
+                        ExecuteExpr(((BoundExprStmt)s).Expr);
+                        ++index;
+                        break;
+
+                    case BoundVarStmt:
+                    {
+                        VarSymbol variable = ((BoundVarStmt)s).Variable;
+                        object? value = ExecuteExpr(((BoundVarStmt)s).Value) ?? throw new Exception($"Variable '{variable.Name}' has no value.");
+                        if (!(variable is GlobalVarSymbol
+                              ? _globals
+                              : _locals.Peek()).TryAdd(variable, value))
+                        {
+                            (variable is GlobalVarSymbol
+                              ? _globals
+                              : _locals.Peek()).Remove(variable);
+                            (variable is GlobalVarSymbol
+                              ? _globals
+                              : _locals.Peek()).Add(variable, value);
+                        }
+
+                        _locals.Peek().Add(variable, value);
+                        ++index;
+                        break;
+                    }
+
+                    case BoundBlockStmt:
+                    {
+                        _lastValue = ExecuteStmt((BoundBlockStmt)s);
+                        ++index;
+                        break;
+                    }
+
+                    case BoundRetStmt:
+                    {
+                        BoundExpr? returnValue = ((BoundRetStmt)s).Value;
+                        return returnValue is null ? null : ExecuteExpr(returnValue);
+                    }
+
+                    default:
+                        throw new Exception($"Unsupported statement.");
+                }
+            }
+
+            return _lastValue;
         }
 
         public object? ExecuteExpr(BoundExpr expr)
@@ -106,29 +138,26 @@ namespace Delta.Evaluation
 
                 case BoundNameExpr:
                 {
-                    string name = ((BoundNameExpr)expr).Symbol.Name;
-                    if (!_scope.TryGetVar(name, out object? value))
-                        throw new Exception($"Variable '{name}' is not defined.");
-                    if (value is null)
-                        throw new Exception($"Variable '{name}' has no value.");
-                    return value;
+                    VarSymbol symbol = ((BoundNameExpr)expr).Variable;
+                    string name = symbol.Name;
+                    return (symbol is GlobalVarSymbol ? _globals : _locals.Peek()).Single(v => v.Key.Name == name).Value;
                 }
 
                 case BoundAssignExpr:
                 {
-                    string name = ((BoundAssignExpr)expr).Symbol.Name;
+                    VarSymbol symbol = ((BoundAssignExpr)expr).Variable;
+                    string name = symbol.Name;
                     object assignValue = ExecuteExpr(((BoundAssignExpr)expr).Value) ?? throw new Exception($"Value to assign to '{name}' has no value.");
-                    if (!_scope.TryAssign(name, assignValue))
-                        throw new Exception($"Variable '{name}' is not defined.");
-                    return assignValue;
+                    return (symbol is GlobalVarSymbol
+                            ? _globals
+                            : _locals.Peek())[symbol] = assignValue;
                 }
 
                 case BoundCallExpr:
                 {
-                    FnSymbol fnSymbol = ((BoundCallExpr)expr).Symbol;
-                    _scope = new(_scope);
+                    FnSymbol fnSymbol = ((BoundCallExpr)expr).Fn;
                     object? result = null;
-                    List<object?> args = ((BoundCallExpr)expr).Args.Select(ExecuteExpr).ToList();
+                    List<object?> args = [.. ((BoundCallExpr)expr).Args.Select(ExecuteExpr)];
                     if (fnSymbol is BuiltInFn)
                     {
                         switch (fnSymbol.Name)
@@ -145,14 +174,17 @@ namespace Delta.Evaluation
                     }
                     else
                     {
+                        Dictionary<VarSymbol, object?> locals = [];
                         for (int i = 0; i < args.Count; i++)
-                            _scope.TryDeclareVar(fnSymbol.ParamList[i].Name, args[i]!);
-                        Interpreter interpreter = new(_scope, fnSymbol);
-                        interpreter.Execute(fnSymbol.Body!);
-                        result = interpreter.RetValue;
+                        {
+                            ParamSymbol parameter = fnSymbol.Parameters[i];
+                            locals.Add(parameter, args[i]);
+                        }
+
+                        _locals.Push(locals);
+                        result = ExecuteStmt(_fns[fnSymbol]);
                     }
 
-                    _scope = _scope.Parent!;
                     return result;
                 }
 
@@ -160,5 +192,13 @@ namespace Delta.Evaluation
                     throw new Exception($"Unsupported expression: {expr.GetType().Name}.");
             }
         }
+    }
+
+    internal class RuntimeException(string title, string message, TextLocation location) : Exception(message)
+    {
+        public string Title { get; } = title;
+        public TextLocation Location { get; } = location;
+
+        public void Print() => Console.Out.WriteLine($"{Location.FileName}:{Location.StartLine}{Location.Span.Start}\n{Title}: {Message}");
     }
 }

@@ -1,10 +1,11 @@
 ﻿using Delta.Analysis.Nodes;
+using System.Collections.Immutable;
 
 namespace Delta.Analysis
 {
     internal static class Utility
     {
-        public static int GetBinOpPrecedence(NodeKind kind) => kind switch
+        public static int GetBinOpPrecedence(this NodeKind kind) => kind switch
         {
             NodeKind.Star => 6,
             NodeKind.Slash => 6,
@@ -21,7 +22,7 @@ namespace Delta.Analysis
             _ => 0
         };
 
-        public static int GetUnOpPrecedence(NodeKind kind) => kind switch
+        public static int GetUnOpPrecedence(this NodeKind kind) => kind switch
         {
             NodeKind.Plus => 7,
             NodeKind.Minus => 7,
@@ -29,7 +30,7 @@ namespace Delta.Analysis
             _ => 0
         };
 
-        public static string? GetLexeme(NodeKind kind) => kind switch
+        public static string? GetLexeme(this NodeKind kind) => kind switch
         {
             NodeKind.Plus => "+",
             NodeKind.Minus => "-",
@@ -77,6 +78,9 @@ namespace Delta.Analysis
             { "fn", NodeKind.Fn },
             { "ret", NodeKind.Ret }
         };
+
+        public static readonly List<NodeKind> KeywordKinds = [.. Keywords.Values];
+        public static readonly List<NodeKind> LiteralKinds = [NodeKind.Number, NodeKind.String, NodeKind.True, NodeKind.False];
     }
 
     internal readonly struct TextSpan(int start, int end)
@@ -84,5 +88,114 @@ namespace Delta.Analysis
         public int Start { get; } = start;
         public int End { get; } = end;
         public int Length => End - Start;
+    }
+
+    internal sealed class SourceText
+    {
+        public ImmutableArray<TextLine> Lines { get; }
+        private readonly string _text;
+
+        private SourceText(string text, string fileName)
+        {
+            Lines = ParseLines(this, text);
+            _text = text;
+            FileName = fileName;
+        }
+
+        public static SourceText From(string text, string fileName = "") => new(text, fileName);
+
+        private static ImmutableArray<TextLine> ParseLines(SourceText source, string text)
+        {
+            ImmutableArray<TextLine>.Builder result = ImmutableArray.CreateBuilder<TextLine>();
+
+            int position = 0;
+            int lineStart = 0;
+            while (position < text.Length)
+            {
+                int lineBreakWidth = GetLineBreakWidth(text, position);
+                if (lineBreakWidth == 0)
+                    ++position;
+                else
+                {
+                    AddLine(result, source, position, lineStart, lineBreakWidth);
+                    position += lineBreakWidth;
+                    lineStart = position;
+                }
+            }
+
+            if (position >= lineStart)
+                AddLine(result, source, position, lineStart, 0);
+
+            return result.ToImmutable();
+        }
+
+        public int GetLineIndex(int position)
+        {
+            int lower = 0, upper = Lines.Length - 1;
+            while (lower <= upper)
+            {
+                int index = lower + (upper - lower) / 2;
+                int start = Lines[index].Start;
+
+                if (start == position)
+                    return index;
+                else if (start > position)
+                    upper = index - 1;
+                else
+                    lower = index + 1;
+            }
+
+            return lower - 1;
+        }
+
+        private static void AddLine(ImmutableArray<TextLine>.Builder result, SourceText source, int position, int lineStart, int lineBreakWidth)
+            => result.Add(new TextLine(source, lineStart, position - lineStart, position - lineStart + lineBreakWidth));
+
+        private static int GetLineBreakWidth(string text, int i)
+        {
+            char c = text[i];
+            char l = i + 1 >= text.Length ? '\0' : text[i + 1];
+            if (c == '\r' && l == '\n')
+                return 2;
+            else if (c == '\r' || l == '\n')
+                return 1;
+            return 0;
+        }
+
+        public override string ToString() => _text;
+
+        public string ToString(int start, int length) => _text.Substring(start, length);
+
+        public string ToString(TextSpan span) => _text.Substring(span.Start, span.Length);
+
+        public string this[Range range] => _text[range];
+        public char this[int position] => _text[position];
+        public int Length => _text.Length;
+        public string FileName { get; }
+    }
+
+    internal sealed class TextLocation(SourceText source, TextSpan span)
+    {
+        public SourceText Source { get; } = source;
+        public string Text => Source[Span.Start..Span.End];
+        public string FileName => Source.FileName;
+        public TextSpan Span { get; } = span;
+        public int StartLine => Source.GetLineIndex(Span.Start);
+        public int StartColumn => Span.Start - Source.Lines[StartLine].Start;
+        public int EndLine => Source.GetLineIndex(Span.End);
+        public int EndColumn => Span.End - Source.Lines[EndLine].Start;
+    }
+
+    internal sealed class TextLine(SourceText source, int start, int length, int lengthWithLineBreak)
+    {
+        public SourceText Source { get; } = source;
+        public int Start { get; } = start;
+        public int Length { get; } = length;
+        public int End => Start + Length;
+        public int LengthWithLineBreak { get; } = lengthWithLineBreak;
+        public TextSpan Span => new(Start, Length);
+        public TextSpan SpanWithLineBreak => new(Start, LengthWithLineBreak);
+
+        public override string ToString() => Source.ToString(Span);
     }
 }

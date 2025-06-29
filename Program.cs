@@ -1,4 +1,4 @@
-﻿using Delta.Environment;
+﻿using Delta.IO;
 
-Repl repl = new();
-repl.Start();
+DeltaRepl repl = new();
+repl.Run();

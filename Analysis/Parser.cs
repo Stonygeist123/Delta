@@ -1,30 +1,115 @@
 ﻿using Delta.Analysis.Nodes;
 using Delta.Diagnostics;
+using System.Collections.Immutable;
 
 namespace Delta.Analysis
 {
     internal class Parser
     {
-        private readonly string _src;
         private int _current = 0;
         private readonly DiagnosticBag _diagnostics = [];
-        private readonly List<Token> _tokens = [];
+        private readonly ImmutableArray<Token> _tokens;
         public DiagnosticBag Diagnostics => _diagnostics;
+        private readonly SyntaxTree _syntaxTree;
 
-        public Parser(string src)
+        public Parser(SyntaxTree syntaxTree)
         {
-            _src = src;
-            Lexer lexer = new(_src);
-            _tokens = lexer.Lex();
-            _diagnostics.AddAll(lexer.Diagnostics);
+            Lexer lexer = new(syntaxTree);
+            _tokens = [.. lexer.Lex().Where(t => t.Kind != NodeKind.Space)];
+            _diagnostics.AddRange(lexer.Diagnostics);
+            _syntaxTree = syntaxTree;
         }
 
-        public List<Stmt> Parse()
+        public ImmutableArray<Stmt> Parse()
         {
-            List<Stmt> stmts = [];
+            ImmutableArray<Stmt>.Builder stmts = ImmutableArray.CreateBuilder<Stmt>();
             while (!IsAtEnd())
                 stmts.Add(ParseStmt());
-            return stmts;
+            return stmts.ToImmutable();
+        }
+
+        public CompilationUnit ParseCompilationUnit()
+        {
+            ImmutableArray<MemberNode> members = ParseMembers();
+            Token eofToken = Advance();
+            if (eofToken.Kind != NodeKind.EOF)
+                _diagnostics.Report(eofToken.Location, "Expected end of file.");
+            return new(_syntaxTree, members, eofToken);
+        }
+
+        private ImmutableArray<MemberNode> ParseMembers()
+        {
+            ImmutableArray<MemberNode>.Builder members = ImmutableArray.CreateBuilder<MemberNode>();
+            while (!IsAtEnd())
+            {
+                Token start = Current;
+                MemberNode member;
+                if (start.Kind == NodeKind.Fn)
+                    member = ParseFnDecl();
+                else
+                    member = ParseStmt();
+                members.Add(member);
+                if (Current == start)
+                    Advance();
+            }
+
+            return members.ToImmutable();
+        }
+
+        private MemberNode ParseFnDecl()
+        {
+            Token fnToken = Advance();
+            Token name = Current;
+            if (!Match(NodeKind.Identifier))
+                return new ErrorStmt(_syntaxTree, fnToken, name);
+            ParameterList? parameters = null;
+            Token lParen = Current;
+            if (lParen.Kind == NodeKind.LParen)
+            {
+                ++_current;
+                List<Param> paramList = [];
+                while (Current.Kind != NodeKind.RParen && !IsAtEnd())
+                {
+                    Token? comma = null;
+                    if (paramList.Count > 0)
+                    {
+                        comma = Advance();
+                        if (comma.Kind != NodeKind.Comma)
+                            _diagnostics.Report(comma.Location, "Expected ',' between parameters.");
+                    }
+
+                    Token paramName = Current;
+                    if (!Match(NodeKind.Identifier))
+                        return new ErrorStmt(_syntaxTree, [fnToken, name, lParen, .. paramList, comma, paramName]);
+                    TypeClause typeClause = ParseTypeClause(NodeKind.Colon);
+                    Param param = new(_syntaxTree, comma, paramName, typeClause);
+                    paramList.Add(param);
+                }
+
+                Token rParen = Current;
+                if (!Match(NodeKind.RParen))
+                    return new ErrorStmt(_syntaxTree, [fnToken, name, lParen, .. paramList, rParen]);
+                parameters = new ParameterList(_syntaxTree, lParen, paramList, rParen);
+            }
+
+            TypeClause returnType = ParseTypeClause(NodeKind.Arrow);
+            Stmt ParseExprStmt()
+            {
+                Expr expr = ParseExpr();
+                Token semicolon = Current;
+                if (semicolon.Kind != NodeKind.Semicolon)
+                {
+                    _diagnostics.Report(semicolon.Location, $"Function body has to be a block or an expression ending with ';'.");
+                    return new ErrorStmt(_syntaxTree, expr, semicolon);
+                }
+
+                return new ExprStmt(_syntaxTree, expr, semicolon);
+            }
+
+            Stmt body = Current.Kind == NodeKind.LBrace ? ParseBlockStmt() : ParseExprStmt();
+            return body is BlockStmt or ExprStmt
+                ? new FnDecl(_syntaxTree, fnToken, name, parameters, returnType, body)
+                : new ErrorStmt(_syntaxTree, fnToken, name, body);
         }
 
         public Stmt ParseStmt()
@@ -40,15 +125,18 @@ namespace Delta.Analysis
 
                     Token name = Current;
                     if (!Match(NodeKind.Identifier))
-                        return new ErrorStmt(varToken, name);
+                        return new ErrorStmt(_syntaxTree, varToken, name);
 
                     TypeClause? typeClause = ParseOptType();
                     Token eqToken = Current;
                     if (!Match(NodeKind.Eq))
-                        return new ErrorStmt(varToken, name, eqToken);
+                        return new ErrorStmt(_syntaxTree, varToken, name, eqToken);
 
                     Expr value = ParseExpr();
-                    return new VarStmt(varToken, mutToken, name, typeClause, eqToken, value);
+                    Token? semicolon = null;
+                    if (Current.Kind == NodeKind.Semicolon)
+                        semicolon = Advance();
+                    return new VarStmt(_syntaxTree, varToken, mutToken, name, typeClause, eqToken, value, semicolon);
                 }
 
                 case NodeKind.LBrace:
@@ -64,10 +152,10 @@ namespace Delta.Analysis
                     {
                         Token elseToken = Advance();
                         Stmt elseClause = ParseStmt();
-                        return new IfStmt(ifToken, condition, thenStmt, new ElseStmt(elseToken, elseClause));
+                        return new IfStmt(_syntaxTree, ifToken, condition, thenStmt, new ElseStmt(_syntaxTree, elseToken, elseClause));
                     }
 
-                    return new IfStmt(ifToken, condition, thenStmt);
+                    return new IfStmt(_syntaxTree, ifToken, condition, thenStmt);
                 }
 
                 case NodeKind.Loop:
@@ -75,50 +163,7 @@ namespace Delta.Analysis
                     Token ifToken = Advance();
                     Expr? condition = Current.Kind == NodeKind.LBrace ? null : ParseExpr();
                     Stmt thenStmt = ParseStmt();
-                    return new LoopStmt(ifToken, condition, thenStmt);
-                }
-
-                case NodeKind.Fn:
-                {
-                    Token fnToken = Advance();
-                    Token name = Current;
-                    if (!Match(NodeKind.Identifier))
-                        return new ErrorStmt(fnToken, name);
-                    ParameterList? parameters = null;
-                    Token lParen = Current;
-                    if (lParen.Kind == NodeKind.LParen)
-                    {
-                        ++_current;
-                        List<Param> paramList = [];
-                        while (Current.Kind != NodeKind.RParen && !IsAtEnd())
-                        {
-                            Token? comma = null;
-                            if (paramList.Count > 0)
-                            {
-                                comma = Advance();
-                                if (comma.Kind != NodeKind.Comma)
-                                    _diagnostics.Add(_src, "Expected ',' between parameters.", comma.Span);
-                            }
-
-                            Token paramName = Current;
-                            if (!Match(NodeKind.Identifier))
-                                return new ErrorStmt([fnToken, name, lParen, .. paramList, comma, paramName]);
-                            TypeClause typeClause = ParseType(NodeKind.Colon);
-                            Param param = new(comma, paramName, typeClause);
-                            paramList.Add(param);
-                        }
-
-                        Token rParen = Current;
-                        if (!Match(NodeKind.RParen))
-                            return new ErrorStmt([fnToken, name, lParen, .. paramList, rParen]);
-                        parameters = new ParameterList(lParen, paramList, rParen);
-                    }
-
-                    TypeClause returnType = ParseType(NodeKind.Arrow);
-                    Stmt body = ParseBlockStmt();
-                    return body is BlockStmt block
-                        ? new FnDecl(fnToken, name, parameters, returnType, block)
-                        : new ErrorStmt(fnToken, name, body);
+                    return new LoopStmt(_syntaxTree, ifToken, condition, thenStmt);
                 }
 
                 case NodeKind.Ret:
@@ -127,8 +172,8 @@ namespace Delta.Analysis
                     Expr? value = Current.Kind == NodeKind.Semicolon ? null : ParseExpr();
                     Token semicolon = Advance();
                     if (semicolon.Kind != (NodeKind.Semicolon))
-                        _diagnostics.Add(_src, "Expected ';' after return statement.", semicolon.Span);
-                    return new RetStmt(retToken, value, semicolon);
+                        _diagnostics.Report(semicolon.Location, "Expected ';' after return statement.");
+                    return new RetStmt(_syntaxTree, retToken, value, semicolon);
                 }
 
                 default:
@@ -137,7 +182,7 @@ namespace Delta.Analysis
                     Token? semicolon = null;
                     if (Current.Kind == NodeKind.Semicolon)
                         semicolon = Advance();
-                    return new ExprStmt(expr, semicolon);
+                    return new ExprStmt(_syntaxTree, expr, semicolon);
                 }
             }
         }
@@ -146,7 +191,7 @@ namespace Delta.Analysis
         {
             Token lBrace = Current;
             if (!Match(NodeKind.LBrace))
-                return new ErrorStmt(lBrace);
+                return new ErrorStmt(_syntaxTree, lBrace);
 
             List<Stmt> stmts = [];
             while (Current.Kind != NodeKind.RBrace && !IsAtEnd())
@@ -154,8 +199,8 @@ namespace Delta.Analysis
 
             Token rBrace = Current;
             if (!Match(NodeKind.RBrace))
-                return new ErrorStmt([lBrace, .. stmts, rBrace]);
-            return new BlockStmt(lBrace, stmts, rBrace);
+                return new ErrorStmt(_syntaxTree, [lBrace, .. stmts, rBrace]);
+            return new BlockStmt(_syntaxTree, lBrace, stmts, rBrace);
         }
 
         public Expr ParseExpr(int parentPrecedence = 0)
@@ -163,8 +208,8 @@ namespace Delta.Analysis
             Expr expr;
             if (IsAtEnd())
             {
-                _diagnostics.Add(_src, "Expected expression.", Current.Span);
-                return new ErrorExpr(_tokens.Last());
+                _diagnostics.Report(Current.Location, "Expected expression.");
+                return new ErrorExpr(_syntaxTree, _tokens.Last());
             }
 
             Token firstToken = Advance();
@@ -174,7 +219,7 @@ namespace Delta.Analysis
                 case NodeKind.String:
                 case NodeKind.True:
                 case NodeKind.False:
-                    expr = new LiteralExpr(firstToken);
+                    expr = new LiteralExpr(_syntaxTree, firstToken);
                     break;
 
                 case NodeKind.Identifier:
@@ -182,15 +227,15 @@ namespace Delta.Analysis
                     {
                         Token eqToken = Advance();
                         Expr value = ParseExpr();
-                        expr = new AssignExpr(firstToken, eqToken, value);
+                        expr = new AssignExpr(_syntaxTree, firstToken, eqToken, value);
                     }
                     else
-                        expr = new NameExpr(firstToken);
+                        expr = new NameExpr(_syntaxTree, firstToken);
                     break;
 
                 case NodeKind.Plus or NodeKind.Minus:
                     Expr operand = ParseExpr(Utility.GetUnOpPrecedence(firstToken.Kind));
-                    expr = new UnaryExpr(firstToken, operand);
+                    expr = new UnaryExpr(_syntaxTree, firstToken, operand);
                     break;
 
                 case NodeKind.LParen:
@@ -198,18 +243,19 @@ namespace Delta.Analysis
                     Token rParen = Advance();
                     if (rParen.Kind != NodeKind.RParen)
                     {
-                        _diagnostics.Add(_src, "Expected ')'.", rParen.Span);
-                        expr = new ErrorExpr(firstToken, expr, rParen);
+                        _diagnostics.Report(rParen.Location, "Expected ')'.");
+                        expr = new ErrorExpr(_syntaxTree, firstToken, expr, rParen);
                     }
 
-                    expr = new GroupingExpr(firstToken, expr, rParen);
+                    expr = new GroupingExpr(_syntaxTree, firstToken, expr, rParen);
                     break;
 
                 default:
-                    _diagnostics.Add(_src, "Expected expression.", firstToken.Span);
-                    expr = new ErrorExpr(firstToken);
+                    _diagnostics.Report(firstToken.Location, "Expected expression.");
+                    expr = new ErrorExpr(_syntaxTree, firstToken);
                     break;
-            };
+            }
+            ;
 
             return CheckExtension(expr, parentPrecedence);
         }
@@ -226,7 +272,7 @@ namespace Delta.Analysis
                 while (precedence > parentPrecedence && !IsAtEnd())
                 {
                     ++_current;
-                    expr = new BinaryExpr(expr, token, ParseExpr(precedence));
+                    expr = new BinaryExpr(_syntaxTree, expr, token, ParseExpr(precedence));
                     if (!IsAtEnd())
                     {
                         token = Current;
@@ -241,47 +287,47 @@ namespace Delta.Analysis
                 while (!IsAtEnd() && Current.Kind != NodeKind.RParen)
                 {
                     if (args.Count == 0)
-                        args.Add(new(null, ParseExpr()));
+                        args.Add(new(_syntaxTree, null, ParseExpr()));
                     else
                     {
                         Token comma = Advance();
                         if (comma.Kind != NodeKind.Comma)
-                            _diagnostics.Add(_src, "Expected ',' between arguments.", comma.Span);
-                        args.Add(new(comma, ParseExpr()));
+                            _diagnostics.Report(comma.Location, "Expected ',' between arguments.");
+                        args.Add(new(_syntaxTree, comma, ParseExpr()));
                     }
                 }
 
                 if (IsAtEnd())
                 {
-                    _diagnostics.Add(_src, "Expected ')'.", Current.Span);
-                    return new ErrorExpr([n, token, .. args]);
+                    _diagnostics.Report(Current.Location, "Expected ')'.");
+                    return new ErrorExpr(_syntaxTree, [n, token, .. args]);
                 }
 
                 Token rParen = Current;
                 if (!Match(NodeKind.RParen))
-                    return new ErrorExpr(n, rParen);
-                expr = new CallExpr(n.Name, token, args, rParen);
+                    return new ErrorExpr(_syntaxTree, n, rParen);
+                expr = new CallExpr(_syntaxTree, n.Name, token, args, rParen);
             }
 
             return expr;
         }
 
-        private TypeClause? ParseOptType(NodeKind markKind = NodeKind.Colon) => Current.Kind != markKind ? null : ParseType(markKind);
+        private TypeClause? ParseOptType(NodeKind markKind = NodeKind.Colon) => Current.Kind != markKind ? null : ParseTypeClause(markKind);
 
-        private TypeClause ParseType(NodeKind markKind = NodeKind.Colon)
+        private TypeClause ParseTypeClause(NodeKind markKind = NodeKind.Colon)
         {
             Token mark = Current;
             if (!Match(markKind))
-                return new TypeClause(mark, null);
+                return new TypeClause(_syntaxTree, mark, Current);
             Token type = Advance();
             if (type.Kind != NodeKind.Identifier)
-                _diagnostics.Add(_src, $"Expected type name after '{Utility.GetLexeme(markKind)}'.", Current.Span);
-            return new TypeClause(mark, type);
+                _diagnostics.Report(Current.Location, $"Expected type name after '{Utility.GetLexeme(markKind)}'.");
+            return new TypeClause(_syntaxTree, mark, type);
         }
 
-        private Token Current => _tokens[_current];
+        private Token Current => _current >= _tokens.Length ? _tokens.Last() : _tokens[_current];
 
-        private Token Advance() => _tokens[_current++];
+        private Token Advance() => _current >= _tokens.Length ? _tokens.Last() : _tokens[_current++];
 
         private bool Match(NodeKind kind)
         {
@@ -290,11 +336,11 @@ namespace Delta.Analysis
                 return true;
             else
             {
-                _diagnostics.Add(_src, $"Expected '{Utility.GetLexeme(kind)}' but found '{Utility.GetLexeme(cur.Kind)}'.", cur.Span);
+                _diagnostics.Report(cur.Location, $"Expected '{Utility.GetLexeme(kind)}' but found '{Utility.GetLexeme(cur.Kind)}'.");
                 return false;
             }
         }
 
-        private bool IsAtEnd() => _current >= _tokens.Count || Current.Kind == NodeKind.EOF;
+        private bool IsAtEnd() => _current >= _tokens.Length || Current.Kind == NodeKind.EOF;
     }
 }

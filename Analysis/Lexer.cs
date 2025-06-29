@@ -1,17 +1,20 @@
 ﻿using Delta.Analysis.Nodes;
 using Delta.Diagnostics;
+using System.Collections.Immutable;
 
 namespace Delta.Analysis
 {
-    internal class Lexer(string _src)
+    internal class Lexer(SyntaxTree syntaxTree)
     {
+        private readonly SyntaxTree _syntaxTree = syntaxTree;
         private int _current = 0;
         private int _start = 0;
-        private readonly List<Token> _tokens = [];
+        private readonly ImmutableArray<Token>.Builder _tokens = ImmutableArray.CreateBuilder<Token>();
         private readonly DiagnosticBag _diagnostics = [];
         public DiagnosticBag Diagnostics => _diagnostics;
+        public SourceText Src => _syntaxTree.Source;
 
-        public List<Token> Lex()
+        public ImmutableArray<Token> Lex()
         {
             while (!IsAtEnd())
             {
@@ -19,15 +22,19 @@ namespace Delta.Analysis
                 GetToken();
             }
 
-            _tokens.Add(new(NodeKind.EOF, Lexeme(), new(_current, _current + 1)));
-            return _tokens;
+            _tokens.Add(new(_syntaxTree, NodeKind.EOF, "\0", new(_current, _current + 1)));
+            return _tokens.ToImmutable();
         }
 
-        private void GetToken()
+        public void GetToken()
         {
             char c = Current;
             switch (c)
             {
+                case '\0':
+                    AddToken(NodeKind.EOF);
+                    return;
+
                 case '+':
                     AddToken(NodeKind.Plus);
                     break;
@@ -115,7 +122,7 @@ namespace Delta.Analysis
                     else
                     {
                         AddToken(NodeKind.Bad);
-                        _diagnostics.Add(_src, $"Unexpected character '&'.", GetSpan());
+                        _diagnostics.Report(new(Src, GetSpan()), $"Unexpected character '&'.");
                     }
                     break;
 
@@ -128,7 +135,7 @@ namespace Delta.Analysis
                     else
                     {
                         AddToken(NodeKind.Bad);
-                        _diagnostics.Add(_src, $"Unexpected character '|'.", GetSpan());
+                        _diagnostics.Report(new(Src, GetSpan()), $"Unexpected character '|'.");
                     }
                     break;
 
@@ -146,9 +153,10 @@ namespace Delta.Analysis
 
                 case ' ':
                 case '\t':
+                case '\r':
                 case '\n':
-                    ++_current;
-                    return;
+                    AddToken(NodeKind.Space);
+                    break;
 
                 case '"':
                     int count = 0;
@@ -163,25 +171,25 @@ namespace Delta.Analysis
                                 break;
 
                             case '\n':
-                                _diagnostics.Add(_src, "Unterminated string literal.", GetSpan());
+                                _diagnostics.Report(new(Src, GetSpan()), "Unterminated string literal.");
                                 break;
 
                             case '\\':
                                 if (IsAtEnd())
                                 {
-                                    _diagnostics.Add(_src, "Unterminated string literal.", GetSpan());
+                                    _diagnostics.Report(new(Src, GetSpan()), "Unterminated string literal.");
                                     return;
                                 }
                                 char next = Current;
                                 if (next is 'n' or 't' or '\\' or '"' or '\'')
                                     ++_current;
                                 else
-                                    _diagnostics.Add(_src, $"Invalid escape sequence: \\{next}", GetSpan());
+                                    _diagnostics.Report(new(Src, GetSpan()), $"Invalid escape sequence: \\{next}");
                                 break;
                         }
                     }
 
-                    _tokens.Add(new Token(NodeKind.String, Lexeme(), GetSpan()));
+                    _tokens.Add(new Token(_syntaxTree, NodeKind.String, Lexeme(), GetSpan()));
                     break;
 
                 default:
@@ -189,19 +197,19 @@ namespace Delta.Analysis
                     {
                         while (char.IsDigit(Current))
                             ++_current;
-                        _tokens.Add(new Token(NodeKind.Number, Lexeme(), GetSpan()));
+                        _tokens.Add(new Token(_syntaxTree, NodeKind.Number, Lexeme(), GetSpan()));
                     }
                     else if (char.IsLetter(c))
                     {
                         while (char.IsLetterOrDigit(Current))
                             ++_current;
                         string lexeme = Lexeme();
-                        _tokens.Add(new Token(Utility.Keywords.TryGetValue(lexeme, out NodeKind kind) ? kind : NodeKind.Identifier, lexeme, GetSpan()));
+                        _tokens.Add(new Token(_syntaxTree, Utility.Keywords.TryGetValue(lexeme, out NodeKind kind) ? kind : NodeKind.Identifier, lexeme, GetSpan()));
                     }
                     else
                     {
                         AddToken(NodeKind.Bad);
-                        _diagnostics.Add(_src, $"Unexpected character.", GetSpan());
+                        _diagnostics.Report(new(Src, GetSpan()), $"Unexpected character.");
                     }
                     break;
             }
@@ -210,15 +218,15 @@ namespace Delta.Analysis
         private void AddToken(NodeKind kind)
         {
             ++_current;
-            _tokens.Add(new Token(kind, Lexeme(), GetSpan()));
+            _tokens.Add(new Token(_syntaxTree, kind, Lexeme(), GetSpan()));
         }
 
-        private bool IsAtEnd() => _current >= _src.Length;
+        private bool IsAtEnd() => _current >= Src.Length;
 
-        private char Current => IsAtEnd() ? '\0' : _src[_current];
-        private char Next => _current - 1 >= _src.Length ? '\0' : _src[_current + 1];
+        private char Current => IsAtEnd() ? '\0' : Src[_current];
+        private char Next => _current + 1 >= Src.Length ? '\0' : Src[_current + 1];
 
-        private string Lexeme() => _src[_start.._current];
+        private string Lexeme() => Src[_start.._current];
 
         private TextSpan GetSpan() => new(_start, _current);
     }

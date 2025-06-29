@@ -1,4 +1,7 @@
-﻿using Delta.Environment;
+﻿using Delta.Binding.BoundNodes;
+using Delta.Diagnostics;
+using Delta.Symbols;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Delta.Binding
@@ -7,37 +10,30 @@ namespace Delta.Binding
     {
         private readonly Dictionary<string, VarSymbol> _variables = [];
         private readonly Dictionary<string, FnSymbol> _fns = [];
-        public Dictionary<string, VarSymbol> Variables => _variables;
-        public Dictionary<string, FnSymbol> Fns => _fns;
+        public ImmutableArray<VarSymbol> Variables => [.. _variables.Values];
+        public ImmutableArray<FnSymbol> Fns => [.. _fns.Values];
         public BoundScope? Parent { get; } = _parent;
 
-        public bool TryDeclareVar(string name, BoundType type, bool mutable, [MaybeNullWhen(false)] out VarSymbol symbol)
+        public bool TryDeclareVar(VarSymbol symbol)
         {
-            if (HasVar(name))
-            {
-                symbol = null;
+            if (TryLookupVar(symbol.Name, out _))
                 return false;
-            }
-
-            Variables.Add(name, symbol = new VarSymbol(name, type, mutable));
+            _variables.Add(symbol.Name, symbol);
             return true;
         }
 
-        public bool TryDeclareFn(FnSymbol fn, [MaybeNullWhen(false)] out FnSymbol symbol)
+        public bool TryDeclareFn(FnSymbol fn)
         {
-            if (HasFn(fn.Name))
-            {
-                symbol = null;
+            if (TryLookupFn(fn.Name, out _))
                 return false;
-            }
 
-            Fns.Add(fn.Name, symbol = fn);
+            _fns.Add(fn.Name, fn);
             return true;
         }
 
-        public bool TryGetVar(string name, [MaybeNullWhen(false)] out VarSymbol variable) => Variables.TryGetValue(name, out variable) || Parent is not null && Parent.TryGetVar(name, out variable);
+        public bool TryLookupVar(string name, [MaybeNullWhen(false)] out VarSymbol variable) => _variables.TryGetValue(name, out variable) || Parent is not null && Parent.TryLookupVar(name, out variable);
 
-        public bool TryGetFn(string name, [MaybeNullWhen(false)] out FnSymbol fn)
+        public bool TryLookupFn(string name, [MaybeNullWhen(false)] out FnSymbol fn)
         {
             FnSymbol? builtInFn = BuiltIn.Fns.Find(f => f.Name == name);
             if (builtInFn != null)
@@ -46,11 +42,18 @@ namespace Delta.Binding
                 return true;
             }
 
-            return (Fns.TryGetValue(name, out fn) || Parent is not null && Parent.TryGetFn(name, out fn));
+            return _fns.TryGetValue(name, out fn) || Parent is not null && Parent.TryLookupFn(name, out fn);
         }
+    }
 
-        public bool HasVar(string name) => Variables.ContainsKey(name) || Parent is not null && Parent.HasVar(name);
-
-        public bool HasFn(string name) => Fns.ContainsKey(name) || Parent is not null && Parent.HasFn(name);
+    internal sealed class BoundGlobalScope(BoundGlobalScope? previous, FnSymbol scriptFn,
+        BoundBlockStmt stmt, ImmutableArray<VarSymbol> variables, ImmutableArray<FnSymbol> functions, ImmutableArray<Diagnostic> diagnostics)
+    {
+        public BoundGlobalScope? Previous { get; } = previous;
+        public FnSymbol ScriptFn { get; } = scriptFn;
+        public BoundBlockStmt Stmt { get; } = stmt;
+        public ImmutableArray<VarSymbol> Variables { get; } = variables;
+        public ImmutableArray<FnSymbol> Functions { get; } = functions;
+        public ImmutableArray<Diagnostic> Diagnostics { get; } = diagnostics;
     }
 }

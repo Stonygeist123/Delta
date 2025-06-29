@@ -1,6 +1,9 @@
-﻿namespace Delta.Binding.BoundNodes
+﻿using Delta.Symbols;
+using System.Collections.Immutable;
+
+namespace Delta.Binding.BoundNodes
 {
-    internal abstract class BoundStmt
+    internal abstract class BoundStmt : BoundNode
     {
     }
 
@@ -9,15 +12,15 @@
         public BoundExpr Expr { get; } = expr;
     }
 
-    internal sealed class BoundVarStmt(VarSymbol symbol, BoundExpr value) : BoundStmt
+    internal sealed class BoundVarStmt(VarSymbol variable, BoundExpr value) : BoundStmt
     {
-        public VarSymbol Symbol { get; } = symbol;
+        public VarSymbol Variable { get; } = variable;
         public BoundExpr Value { get; } = value;
     }
 
-    internal sealed class BoundBlockStmt(List<BoundStmt> stmts) : BoundStmt
+    internal sealed class BoundBlockStmt(ImmutableArray<BoundStmt> stmts) : BoundStmt
     {
-        public List<BoundStmt> Stmts { get; } = stmts;
+        public ImmutableArray<BoundStmt> Stmts { get; } = stmts;
     }
 
     internal sealed class BoundIfStmt(BoundExpr condition, BoundStmt thenStmt, BoundStmt? elseClause) : BoundStmt
@@ -27,10 +30,13 @@
         public BoundStmt? ElseClause { get; } = elseClause;
     }
 
-    internal sealed class BoundLoopStmt(BoundExpr condition, BoundStmt thenStmt) : BoundStmt
+    internal sealed class BoundLoopStmt(BoundExpr condition, BoundStmt body, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel) : BoundStmt
     {
         public BoundExpr Condition { get; } = condition;
-        public BoundStmt ThenStmt { get; } = thenStmt;
+        public BoundStmt Body { get; } = body;
+        public LabelSymbol BodyLabel { get; } = bodyLabel;
+        public LabelSymbol BreakLabel { get; } = breakLabel;
+        public LabelSymbol ContinueLabel { get; } = continueLabel;
     }
 
     internal sealed class BoundFnDecl(FnSymbol symbol) : BoundStmt
@@ -41,5 +47,26 @@
     internal sealed class BoundRetStmt(BoundExpr? value) : BoundStmt
     {
         public BoundExpr? Value { get; } = value;
+    }
+
+    internal sealed class BoundLabelStmt(LabelSymbol label) : BoundStmt
+    {
+        public LabelSymbol Label { get; } = label;
+    }
+
+    internal sealed class BoundGotoStmt(LabelSymbol label) : BoundStmt
+    {
+        public LabelSymbol Label { get; } = label;
+    }
+
+    internal sealed class BoundCondGotoStmt(LabelSymbol label, BoundExpr condition, bool jumpIfTrue = true) : BoundStmt
+    {
+        public LabelSymbol Label { get; } = label;
+        public BoundExpr Condition { get; } = condition;
+        public bool JumpIfTrue { get; } = jumpIfTrue;
+    }
+
+    internal sealed class BoundErrorStmt() : BoundStmt
+    {
     }
 }

@@ -1,25 +1,28 @@
 ﻿using Delta.Analysis;
+using System.Collections;
 
 namespace Delta.Diagnostics
 {
-    internal class Diagnostic(string text, string message, TextSpan span)
+    internal class Diagnostic(TextLocation? location, string message)
     {
+        public TextLocation? Location { get; } = location;
         public string Message { get; } = message;
-        public TextSpan Span { get; } = span;
-        public string Text { get; } = text;
 
-        public void Print()
-        {
-            ConsoleColor originalColor = Console.ForegroundColor;
+        public override string ToString() => Message;
+    }
 
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine(Text);
+    internal sealed class DiagnosticBag : IEnumerable<Diagnostic>
+    {
+        private readonly List<Diagnostic> _diagnostics = [];
 
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine(new string(' ', Span.Start) + new string('^', Span.Length));
-            Console.WriteLine(new string(' ', Span.Start) + $"[Error] {Message}");
+        public void Report(TextLocation location, string message) => _diagnostics.Add(new(location, message));
 
-            Console.ForegroundColor = originalColor;
-        }
+        public IEnumerator<Diagnostic> GetEnumerator() => _diagnostics.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public void AddRange(DiagnosticBag diagnostics) => _diagnostics.AddRange(diagnostics);
+
+        public void AddRange(IEnumerable<Diagnostic> diagnostics) => _diagnostics.AddRange(diagnostics);
     }
 }

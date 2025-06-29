@@ -1,17 +1,17 @@
 ﻿namespace Delta.Analysis.Nodes
 {
-    internal abstract class Expr : Node
+    internal abstract class Expr(SyntaxTree syntaxTree) : Node(syntaxTree)
     {
     }
 
-    internal class LiteralExpr(Token token) : Expr
+    internal class LiteralExpr(SyntaxTree syntaxTree, Token token) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.LiteralExpr;
         public Token Token => token;
         public override TextSpan Span => token.Span;
     }
 
-    internal class BinaryExpr(Expr left, Token op, Expr right) : Expr
+    internal class BinaryExpr(SyntaxTree syntaxTree, Expr left, Token op, Expr right) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.BinaryExpr;
         public Expr Left { get; } = left;
@@ -20,7 +20,7 @@
         public override TextSpan Span => new(Left.Span.Start, Right.Span.End);
     }
 
-    internal class UnaryExpr(Token op, Expr operand) : Expr
+    internal class UnaryExpr(SyntaxTree syntaxTree, Token op, Expr operand) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.UnaryExpr;
         public Token Op { get; } = op;
@@ -28,7 +28,7 @@
         public override TextSpan Span => new(Op.Span.Start, Operand.Span.End);
     }
 
-    internal class GroupingExpr(Token lParen, Expr expression, Token rParen) : Expr
+    internal class GroupingExpr(SyntaxTree syntaxTree, Token lParen, Expr expression, Token rParen) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.GroupingExpr;
         public Token LParen { get; } = lParen;
@@ -37,14 +37,14 @@
         public override TextSpan Span => new(LParen.Span.Start, RParen.Span.End);
     }
 
-    internal class NameExpr(Token name) : Expr
+    internal class NameExpr(SyntaxTree syntaxTree, Token name) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.NameExpr;
         public Token Name { get; } = name;
         public override TextSpan Span => Name.Span;
     }
 
-    internal class AssignExpr(Token name, Token eqToken, Expr value) : Expr
+    internal class AssignExpr(SyntaxTree syntaxTree, Token name, Token eqToken, Expr value) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.AssignExpr;
         public Token Name { get; } = name;
@@ -53,7 +53,7 @@
         public override TextSpan Span => new(Name.Span.Start, Value.Span.End);
     }
 
-    internal class CallExpr(Token name, Token lParen, List<Arg> args, Token rParen) : Expr
+    internal class CallExpr(SyntaxTree syntaxTree, Token name, Token lParen, List<Arg> args, Token rParen) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.CallExpr;
         public Token Name { get; } = name;
@@ -63,7 +63,7 @@
         public override TextSpan Span => new(Name.Span.Start, RParen.Span.End);
     }
 
-    internal class ErrorExpr(params List<Node> nodes) : Expr
+    internal class ErrorExpr(SyntaxTree syntaxTree, params List<Node> nodes) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.ErrorExpr;
         public List<Node> Nodes { get; } = nodes;

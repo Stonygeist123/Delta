@@ -1,6 +1,6 @@
 ﻿namespace Delta.Analysis.Nodes
 {
-    internal class Token(NodeKind kind, string lexeme, TextSpan span) : Node
+    internal class Token(SyntaxTree syntaxTree, NodeKind kind, string lexeme, TextSpan span) : Node(syntaxTree)
     {
         public override NodeKind Kind => kind;
         public string Lexeme => lexeme;
