@@ -32,7 +32,7 @@ namespace Delta.Symbols
     {
     }
 
-    internal class ParamSymbol(string name, TypeSymbol type) : LocalVarSymbol(name, type, true)
+    internal sealed class ParamSymbol(string name, TypeSymbol type) : LocalVarSymbol(name, type, true)
     {
     }
 
@@ -43,11 +43,16 @@ namespace Delta.Symbols
         public FnDecl? Decl { get; } = decl;
     }
 
+    internal sealed class ClassSymbol(string name, ClassDecl decl) : Symbol(name)
+    {
+        public ClassDecl Decl { get; } = decl;
+    }
+
     internal class BuiltInFn(string name, TypeSymbol type, IEnumerable<ParamSymbol> paramList) : FnSymbol(name, type, [.. paramList], null)
     {
     }
 
-    internal class TypeSymbol(string name) : Symbol(name)
+    internal sealed class TypeSymbol(string name) : Symbol(name)
     {
         public static TypeSymbol Number => new("number");
         public static TypeSymbol String => new("string");

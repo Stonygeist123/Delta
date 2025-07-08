@@ -46,6 +46,8 @@ namespace Delta.Analysis
                 MemberNode member;
                 if (start.Kind == NodeKind.Fn)
                     member = ParseFnDecl();
+                else if (start.Kind == NodeKind.Class)
+                    member = ParseClassDecl();
                 else
                     member = ParseStmt();
                 members.Add(member);
@@ -58,10 +60,10 @@ namespace Delta.Analysis
 
         private MemberNode ParseFnDecl()
         {
-            Token fnToken = Advance();
+            Token keyword = Advance();
             Token name = Current;
             if (!Match(NodeKind.Identifier))
-                return new ErrorStmt(_syntaxTree, fnToken, name);
+                return new ErrorStmt(_syntaxTree, keyword, name);
             ParameterList? parameters = null;
             Token lParen = Current;
             if (lParen.Kind == NodeKind.LParen)
@@ -80,7 +82,7 @@ namespace Delta.Analysis
 
                     Token paramName = Current;
                     if (!Match(NodeKind.Identifier))
-                        return new ErrorStmt(_syntaxTree, [fnToken, name, lParen, .. paramList, comma, paramName]);
+                        return new ErrorStmt(_syntaxTree, [keyword, name, lParen, .. paramList, comma, paramName]);
                     TypeClause typeClause = ParseTypeClause(NodeKind.Colon);
                     Param param = new(_syntaxTree, comma, paramName, typeClause);
                     paramList.Add(param);
@@ -88,7 +90,7 @@ namespace Delta.Analysis
 
                 Token rParen = Current;
                 if (!Match(NodeKind.RParen))
-                    return new ErrorStmt(_syntaxTree, [fnToken, name, lParen, .. paramList, rParen]);
+                    return new ErrorStmt(_syntaxTree, [keyword, name, lParen, .. paramList, rParen]);
                 parameters = new ParameterList(_syntaxTree, lParen, paramList, rParen);
             }
 
@@ -108,8 +110,23 @@ namespace Delta.Analysis
 
             Stmt body = Current.Kind == NodeKind.LBrace ? ParseBlockStmt() : ParseExprStmt();
             return body is BlockStmt or ExprStmt
-                ? new FnDecl(_syntaxTree, fnToken, name, parameters, returnType, body)
-                : new ErrorStmt(_syntaxTree, fnToken, name, body);
+                ? new FnDecl(_syntaxTree, keyword, name, parameters, returnType, body)
+                : new ErrorStmt(_syntaxTree, keyword, name, body);
+        }
+
+        private MemberNode ParseClassDecl()
+        {
+            Token keyword = Advance();
+            Token name = Current;
+            if (!Match(NodeKind.Identifier))
+                return new ErrorStmt(_syntaxTree, keyword, name);
+            Token lBrace = Current;
+            if (!Match(NodeKind.LBrace))
+                return new ErrorStmt(_syntaxTree, keyword, name, lBrace);
+            Token rBrace = Current;
+            if (!Match(NodeKind.RBrace))
+                return new ErrorStmt(_syntaxTree, keyword, name, lBrace, rBrace);
+            return new ClassDecl(_syntaxTree, keyword, name, lBrace, rBrace);
         }
 
         public Stmt ParseStmt()

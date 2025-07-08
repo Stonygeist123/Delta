@@ -4,16 +4,6 @@
     {
     }
 
-    internal class FnDecl(SyntaxTree syntaxTree, Token keyword, Token name, ParameterList? parameters, TypeClause returnType, Stmt body) : MemberNode(syntaxTree)
-    {
-        public Token Keyword { get; } = keyword;
-        public Token Name { get; } = name;
-        public ParameterList? Parameters { get; } = parameters;
-        public TypeClause ReturnType { get; } = returnType;
-        public Stmt Body { get; } = body;
-        public override NodeKind Kind => NodeKind.FnDecl;
-    }
-
     internal class ExprStmt(SyntaxTree syntaxTree, Expr expr, Token? semicolon) : Stmt(syntaxTree)
     {
         public Expr Expr { get; } = expr;

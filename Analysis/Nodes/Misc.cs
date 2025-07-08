@@ -2,9 +2,6 @@
 
 namespace Delta.Analysis.Nodes
 {
-    internal abstract class MemberNode(SyntaxTree syntaxTree) : Node(syntaxTree)
-    { }
-
     internal class Arg(SyntaxTree syntaxTree, Token? comma, Expr arg) : Node(syntaxTree)
     {
         public Token? Comma = comma;

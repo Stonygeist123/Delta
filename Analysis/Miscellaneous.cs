@@ -63,10 +63,13 @@ namespace Delta.Analysis
             NodeKind.Loop => "loop",
             NodeKind.For => "for",
             NodeKind.Fn => "fn",
+            NodeKind.Class => "class",
             NodeKind.Ret => "ret",
             NodeKind.Break => "break",
             NodeKind.Continue => "continue",
             NodeKind.Step => "step",
+            NodeKind.Pub => "pub",
+            NodeKind.Priv => "priv",
             _ => null,
         };
 
@@ -81,10 +84,13 @@ namespace Delta.Analysis
             { "loop", NodeKind.Loop },
             { "for", NodeKind.For },
             { "fn", NodeKind.Fn },
+            { "class", NodeKind.Class },
             { "ret", NodeKind.Ret },
             { "break", NodeKind.Break },
             { "continue", NodeKind.Continue },
-            { "step", NodeKind.Step},
+            { "step", NodeKind.Step },
+            { "pub", NodeKind.Pub },
+            { "priv", NodeKind.Priv },
         };
     }
 

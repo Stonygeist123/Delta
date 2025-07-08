@@ -49,6 +49,10 @@ namespace Delta.Binding
             foreach (FnDecl fnDecl in fnDecls)
                 binder.BindFnDecl(fnDecl);
 
+            IEnumerable<ClassDecl> classDecls = syntaxTrees.SelectMany(s => s.Root.Members).OfType<ClassDecl>();
+            foreach (ClassDecl classDecl in classDecls)
+                binder.BindClassDecl(classDecl);
+
             Stmt?[] firstGlobalStmts = [.. syntaxTrees.Select(st => st.Root.Members.OfType<Stmt>().FirstOrDefault()).Where(g => g is not null)];
             if (firstGlobalStmts.Length > 1)
             {
@@ -64,7 +68,7 @@ namespace Delta.Binding
             ImmutableArray<Diagnostic> diagnostics = [.. binder.Diagnostics];
             if (previous is not null)
                 diagnostics.InsertRange(0, previous.Diagnostics);
-            return new(previous, scriptFn, new BoundBlockStmt(boundStmts), binder._scope.Variables, binder._scope.Fns, diagnostics);
+            return new(previous, scriptFn, new BoundBlockStmt(boundStmts), binder._scope.Variables, binder._scope.Fns, binder._scope.Classes, diagnostics);
         }
 
         private static BoundScope CreateParentScope(BoundGlobalScope? previous)
@@ -132,6 +136,20 @@ namespace Delta.Binding
             FnSymbol fn = new(name, retType, paramList, decl);
             if (!_scope.TryDeclareFn(fn))
                 _diagnostics.Report(decl.Name.Location, $"Function '{name}' is already defined.");
+        }
+
+        private void BindClassDecl(ClassDecl decl)
+        {
+            if (_fn is not null)
+            {
+                _diagnostics.Report(decl.Keyword.Location, $"Cannot class in function.");
+                return;
+            }
+
+            string name = decl.Name.Lexeme;
+            ClassSymbol symbol = new(name, decl);
+            if (!_scope.TryDeclareClass(symbol))
+                _diagnostics.Report(decl.Name.Location, $"Class '{name}' is already defined.");
         }
 
         public BoundStmt BindStmt(Stmt stmt) => stmt switch
