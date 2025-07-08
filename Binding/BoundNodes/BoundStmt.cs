@@ -39,6 +39,18 @@ namespace Delta.Binding.BoundNodes
         public LabelSymbol ContinueLabel { get; } = continueLabel;
     }
 
+    internal sealed class BoundForStmt(VarSymbol variable, BoundExpr startValue, BoundExpr endValue, BoundExpr? stepValue, BoundStmt body, LabelSymbol bodyLabel, LabelSymbol breakLabel, LabelSymbol continueLabel) : BoundStmt
+    {
+        public VarSymbol Variable { get; } = variable;
+        public BoundExpr StartValue { get; } = startValue;
+        public BoundExpr EndValue { get; } = endValue;
+        public BoundExpr? StepValue { get; } = stepValue;
+        public BoundStmt Body { get; } = body;
+        public LabelSymbol BodyLabel { get; } = bodyLabel;
+        public LabelSymbol BreakLabel { get; } = breakLabel;
+        public LabelSymbol ContinueLabel { get; } = continueLabel;
+    }
+
     internal sealed class BoundFnDecl(FnSymbol symbol) : BoundStmt
     {
         public FnSymbol Symbol { get; } = symbol;

@@ -4,9 +4,9 @@
     {
     }
 
-    internal class FnDecl(SyntaxTree syntaxTree, Token fnToken, Token name, ParameterList? parameters, TypeClause returnType, Stmt body) : MemberNode(syntaxTree)
+    internal class FnDecl(SyntaxTree syntaxTree, Token keyword, Token name, ParameterList? parameters, TypeClause returnType, Stmt body) : MemberNode(syntaxTree)
     {
-        public Token FnToken { get; } = fnToken;
+        public Token Keyword { get; } = keyword;
         public Token Name { get; } = name;
         public ParameterList? Parameters { get; } = parameters;
         public TypeClause ReturnType { get; } = returnType;
@@ -21,9 +21,9 @@
         public override NodeKind Kind => NodeKind.ExprStmt;
     }
 
-    internal class VarStmt(SyntaxTree syntaxTree, Token varToken, Token? mutToken, Token name, TypeClause? typeClause, Token eqToken, Expr value, Token? semicolon) : Stmt(syntaxTree)
+    internal class VarStmt(SyntaxTree syntaxTree, Token keyword, Token? mutToken, Token name, TypeClause? typeClause, Token eqToken, Expr value, Token? semicolon) : Stmt(syntaxTree)
     {
-        public Token VarToken => varToken;
+        public Token Keyword { get; } = keyword;
         public Token? MutToken { get; } = mutToken;
         public Token Name { get; } = name;
         public TypeClause? TypeClause { get; } = typeClause;
@@ -41,33 +41,47 @@
         public override NodeKind Kind => NodeKind.BlockStmt;
     }
 
-    internal class IfStmt(SyntaxTree syntaxTree, Token ifToken, Expr? condition, Stmt body, ElseStmt? elseBranch = null) : Stmt(syntaxTree)
+    internal class IfStmt(SyntaxTree syntaxTree, Token keyword, Expr? condition, Stmt body, ElseStmt? elseBranch = null) : Stmt(syntaxTree)
     {
-        public Token IfToken { get; } = ifToken;
+        public Token Keyword { get; } = keyword;
         public Expr? Condition { get; } = condition;
         public Stmt Body { get; } = body;
         public ElseStmt? ElseBranch { get; } = elseBranch;
         public override NodeKind Kind => NodeKind.IfStmt;
     }
 
-    internal class ElseStmt(SyntaxTree syntaxTree, Token elseToken, Stmt body) : Stmt(syntaxTree)
+    internal class ElseStmt(SyntaxTree syntaxTree, Token keyword, Stmt body) : Stmt(syntaxTree)
     {
-        public Token ElseToken { get; } = elseToken;
+        public Token Keyword { get; } = keyword;
         public Stmt Body { get; } = body;
         public override NodeKind Kind => NodeKind.ElseStmt;
     }
 
-    internal class LoopStmt(SyntaxTree syntaxTree, Token loopToken, Expr? condition, Stmt bodyStmt) : Stmt(syntaxTree)
+    internal class LoopStmt(SyntaxTree syntaxTree, Token keyword, Expr? condition, Stmt body) : Stmt(syntaxTree)
     {
-        public Token LoopToken { get; } = loopToken;
+        public Token Keyword { get; } = keyword;
         public Expr? Condition { get; } = condition;
-        public Stmt Body { get; } = bodyStmt;
+        public Stmt Body { get; } = body;
         public override NodeKind Kind => NodeKind.LoopStmt;
     }
 
-    internal class RetStmt(SyntaxTree syntaxTree, Token retToken, Expr? value, Token semicolon) : Stmt(syntaxTree)
+    internal class ForStmt(SyntaxTree syntaxTree, Token keyword, Token varName, Token eqToken, Expr startValue, Token arrowToken, Expr endValue, Token? stepToken, Expr? stepValue, Stmt body) : Stmt(syntaxTree)
     {
-        public Token RetToken { get; } = retToken;
+        public Token Keyword { get; } = keyword;
+        public Token VarName { get; } = varName;
+        public Token EqToken { get; } = eqToken;
+        public Expr StartValue { get; } = startValue;
+        public Token ArrowToken { get; } = arrowToken;
+        public Expr EndValue { get; } = endValue;
+        public Token? StepToken { get; } = stepToken;
+        public Expr? StepValue { get; } = stepValue;
+        public Stmt Body { get; } = body;
+        public override NodeKind Kind => NodeKind.ForStmt;
+    }
+
+    internal class RetStmt(SyntaxTree syntaxTree, Token keyword, Expr? value, Token semicolon) : Stmt(syntaxTree)
+    {
+        public Token Keyword { get; } = keyword;
         public Expr? Value { get; } = value;
         public Token Semicolon { get; } = semicolon;
         public override NodeKind Kind => NodeKind.RetStmt;

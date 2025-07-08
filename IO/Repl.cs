@@ -475,7 +475,6 @@ namespace Delta.IO
     {
         private Compilation? _previous = null;
         private bool _showTree = false, _showProgram = false;
-        private static readonly Compilation emptyCompilation = new(null);
         private readonly Dictionary<VarSymbol, object?> _vars = [];
 
         protected override void RenderLine(string line)

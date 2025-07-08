@@ -61,8 +61,12 @@ namespace Delta.Analysis
             NodeKind.If => "if",
             NodeKind.Else => "else",
             NodeKind.Loop => "loop",
+            NodeKind.For => "for",
             NodeKind.Fn => "fn",
             NodeKind.Ret => "ret",
+            NodeKind.Break => "break",
+            NodeKind.Continue => "continue",
+            NodeKind.Step => "step",
             _ => null,
         };
 
@@ -75,12 +79,13 @@ namespace Delta.Analysis
             { "if", NodeKind.If },
             { "else", NodeKind.Else },
             { "loop", NodeKind.Loop },
+            { "for", NodeKind.For },
             { "fn", NodeKind.Fn },
-            { "ret", NodeKind.Ret }
+            { "ret", NodeKind.Ret },
+            { "break", NodeKind.Break },
+            { "continue", NodeKind.Continue },
+            { "step", NodeKind.Step},
         };
-
-        public static readonly List<NodeKind> KeywordKinds = [.. Keywords.Values];
-        public static readonly List<NodeKind> LiteralKinds = [NodeKind.Number, NodeKind.String, NodeKind.True, NodeKind.False];
     }
 
     internal readonly struct TextSpan(int start, int length)

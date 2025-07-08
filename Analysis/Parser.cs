@@ -116,64 +116,104 @@ namespace Delta.Analysis
         {
             switch (Current.Kind)
             {
+                case NodeKind.LBrace:
+                    return ParseBlockStmt();
+
                 case NodeKind.Var:
                 {
-                    Token varToken = Advance();
+                    Token keyword = Advance();
                     Token? mutToken = null;
                     if (Current.Kind == NodeKind.Mut)
                         mutToken = Advance();
 
                     Token name = Current;
                     if (!Match(NodeKind.Identifier))
-                        return new ErrorStmt(_syntaxTree, varToken, name);
+                        return new ErrorStmt(_syntaxTree, keyword, name);
 
                     TypeClause? typeClause = ParseOptType();
                     Token eqToken = Current;
                     if (!Match(NodeKind.Eq))
-                        return new ErrorStmt(_syntaxTree, varToken, name, eqToken);
+                        return new ErrorStmt(_syntaxTree, keyword, name, eqToken);
 
                     Expr value = ParseExpr();
                     Token? semicolon = null;
                     if (Current.Kind == NodeKind.Semicolon)
                         semicolon = Advance();
-                    return new VarStmt(_syntaxTree, varToken, mutToken, name, typeClause, eqToken, value, semicolon);
+                    return new VarStmt(_syntaxTree, keyword, mutToken, name, typeClause, eqToken, value, semicolon);
                 }
-
-                case NodeKind.LBrace:
-                    return ParseBlockStmt();
 
                 case NodeKind.If:
                 {
-                    Token ifToken = Advance();
+                    Token keyword = Advance();
                     Expr? condition = Current.Kind == NodeKind.LBrace ? null : ParseExpr();
-                    Stmt thenStmt = ParseStmt();
-
+                    Stmt body = ParseStmt();
                     if (Current.Kind == NodeKind.Else)
                     {
                         Token elseToken = Advance();
                         Stmt elseClause = ParseStmt();
-                        return new IfStmt(_syntaxTree, ifToken, condition, thenStmt, new ElseStmt(_syntaxTree, elseToken, elseClause));
+                        return new IfStmt(_syntaxTree, keyword, condition, body, new ElseStmt(_syntaxTree, elseToken, elseClause));
                     }
 
-                    return new IfStmt(_syntaxTree, ifToken, condition, thenStmt);
+                    return new IfStmt(_syntaxTree, keyword, condition, body);
                 }
 
                 case NodeKind.Loop:
                 {
-                    Token ifToken = Advance();
+                    Token keyword = Advance();
                     Expr? condition = Current.Kind == NodeKind.LBrace ? null : ParseExpr();
-                    Stmt thenStmt = ParseStmt();
-                    return new LoopStmt(_syntaxTree, ifToken, condition, thenStmt);
+                    Stmt body = ParseStmt();
+                    return new LoopStmt(_syntaxTree, keyword, condition, body);
+                }
+
+                case NodeKind.For:
+                {
+                    Token keyword = Advance();
+                    Token varName = Current;
+                    if (!Match(NodeKind.Identifier))
+                        return new ErrorStmt(_syntaxTree, keyword, varName);
+
+                    Token eqToken = Current;
+                    if (!Match(NodeKind.Eq))
+                        return new ErrorStmt(_syntaxTree, keyword, varName, eqToken);
+
+                    Expr startValue = ParseExpr();
+                    Token arrowToken = Current;
+                    if (!Match(NodeKind.Arrow))
+                        return new ErrorStmt(_syntaxTree, keyword, varName, eqToken, startValue, arrowToken);
+
+                    Expr endValue = ParseExpr();
+                    Token? stepToken = Current.Kind == NodeKind.Step ? Advance() : null;
+                    Expr? stepValue = stepToken is null ? null : ParseExpr();
+                    Stmt body = ParseStmt();
+                    return new ForStmt(_syntaxTree, keyword, varName, eqToken, startValue, arrowToken, endValue, stepToken, stepValue, body);
                 }
 
                 case NodeKind.Ret:
                 {
-                    Token retToken = Advance();
+                    Token keyword = Advance();
                     Expr? value = Current.Kind == NodeKind.Semicolon ? null : ParseExpr();
                     Token semicolon = Advance();
                     if (semicolon.Kind != (NodeKind.Semicolon))
                         _diagnostics.Report(semicolon.Location, "Expected ';' after return statement.");
-                    return new RetStmt(_syntaxTree, retToken, value, semicolon);
+                    return new RetStmt(_syntaxTree, keyword, value, semicolon);
+                }
+
+                case NodeKind.Break:
+                {
+                    Token keyword = Advance();
+                    Token semicolon = Advance();
+                    if (semicolon.Kind != (NodeKind.Semicolon))
+                        _diagnostics.Report(semicolon.Location, "Expected ';' after break statement.");
+                    return new BreakStmt(_syntaxTree, keyword, semicolon);
+                }
+
+                case NodeKind.Continue:
+                {
+                    Token keyword = Advance();
+                    Token semicolon = Advance();
+                    if (semicolon.Kind != (NodeKind.Semicolon))
+                        _diagnostics.Report(semicolon.Location, "Expected ';' after continue statement.");
+                    return new ContinueStmt(_syntaxTree, keyword, semicolon);
                 }
 
                 default:

@@ -141,9 +141,10 @@ namespace Delta.Binding
             BlockStmt => BindBlockStmt((BlockStmt)stmt),
             IfStmt => BindIfStmt((IfStmt)stmt),
             LoopStmt => BindLoopStmt((LoopStmt)stmt),
-            RetStmt => BindRetStmt((RetStmt)stmt),
+            ForStmt => BindForStmt((ForStmt)stmt),
             BreakStmt => BindBreakStmt((BreakStmt)stmt),
             ContinueStmt => BindContinueStmt((ContinueStmt)stmt),
+            RetStmt => BindRetStmt((RetStmt)stmt),
             _ => throw new NotSupportedException($"Unsupported statement type: {stmt.GetType()}")
         };
 
@@ -152,7 +153,6 @@ namespace Delta.Binding
             BoundExpr boundValue = BindExpr(stmt.Value);
             string name = stmt.Name.Lexeme;
             TypeSymbol type = stmt.TypeClause is null ? boundValue.Type : BindTypeClause(stmt.TypeClause);
-
             VarSymbol symbol = DeclareVar(stmt.Name, type, stmt.MutToken is not null);
             if (boundValue.Type != symbol.Type)
             {
@@ -191,13 +191,13 @@ namespace Delta.Binding
             return new BoundIfStmt(condition, thenStmt, elseClause);
         }
 
-        private BoundStmt BoundLoopStmt(Stmt stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel)
+        private BoundStmt GetBoundLoopStmt(Stmt stmt, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel)
         {
             bodyLabel = new($"LoopBody_{++_labelCounter}");
             breakLabel = new($"Break_{_labelCounter}");
             continueLabel = new($"Continue_{_labelCounter}");
 
-            _loopStack.Push((bodyLabel, continueLabel));
+            _loopStack.Push((breakLabel, continueLabel));
             BoundStmt boundStmt = BindStmt(stmt);
             _loopStack.Pop();
             return boundStmt;
@@ -212,8 +212,39 @@ namespace Delta.Binding
                 condition = new BoundError();
             }
 
-            BoundStmt body = BoundLoopStmt(stmt.Body, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
+            BoundStmt body = GetBoundLoopStmt(stmt.Body, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
             return new BoundLoopStmt(condition, body, bodyLabel, breakLabel, continueLabel);
+        }
+
+        private BoundForStmt BindForStmt(ForStmt stmt)
+        {
+            BoundExpr startValue = BindExpr(stmt.StartValue);
+            BoundExpr endValue = BindExpr(stmt.EndValue);
+            BoundExpr? stepValue = stmt.StepValue is null ? null : BindExpr(stmt.StepValue);
+
+            if (startValue.Type != TypeSymbol.Number)
+            {
+                startValue = new BoundError();
+                _diagnostics.Report(stmt.StartValue.Location, $"Expected value of type 'number' for start value.");
+            }
+
+            if (endValue.Type != TypeSymbol.Number)
+            {
+                endValue = new BoundError();
+                _diagnostics.Report(stmt.EndValue.Location, $"Expected value of type 'number' for end value.");
+            }
+
+            if (stepValue is not null && stepValue.Type != TypeSymbol.Number)
+            {
+                stepValue = new BoundError();
+                _diagnostics.Report(stmt.StepValue!.Location, $"Expected value of type 'number' for step value.");
+            }
+
+            _scope = new(_scope);
+            VarSymbol variable = DeclareVar(stmt.VarName, TypeSymbol.Number, true);
+            BoundStmt body = GetBoundLoopStmt(stmt.Body, out LabelSymbol bodyLabel, out LabelSymbol breakLabel, out LabelSymbol continueLabel);
+            _scope = _scope.Parent!;
+            return new BoundForStmt(variable, startValue, endValue, stepValue, body, bodyLabel, breakLabel, continueLabel);
         }
 
         private BoundStmt BindBreakStmt(BreakStmt b)
@@ -242,7 +273,7 @@ namespace Delta.Binding
         {
             if (_fn is null)
             {
-                _diagnostics.Report(retStmt.RetToken.Location, "Return statement can only be used inside a function.");
+                _diagnostics.Report(retStmt.Keyword.Location, "Return statement can only be used inside a function.");
                 return new BoundErrorStmt();
             }
 

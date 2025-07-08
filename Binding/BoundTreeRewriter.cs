@@ -12,6 +12,7 @@ namespace Delta.Binding
             BoundVarStmt => RewriteVarStmt((BoundVarStmt)node),
             BoundIfStmt => RewriteIfStmt((BoundIfStmt)node),
             BoundLoopStmt => RewriteLoopStmt((BoundLoopStmt)node),
+            BoundForStmt => RewriteForStmt((BoundForStmt)node),
             BoundLabelStmt => RewriteLabelStmt((BoundLabelStmt)node),
             BoundGotoStmt => RewriteGotoStmt((BoundGotoStmt)node),
             BoundCondGotoStmt => RewriteCondGotoStmt((BoundCondGotoStmt)node),
@@ -91,6 +92,17 @@ namespace Delta.Binding
             if (condition == node.Condition && stmt == node.Body)
                 return node;
             return new BoundLoopStmt(condition, stmt, node.BodyLabel, node.BreakLabel, node.ContinueLabel);
+        }
+
+        protected virtual BoundStmt RewriteForStmt(BoundForStmt node)
+        {
+            BoundExpr startValue = RewriteExpr(node.StartValue);
+            BoundExpr endValue = RewriteExpr(node.EndValue);
+            BoundExpr? stepValue = node.StepValue is null ? null : RewriteExpr(node.StepValue);
+            BoundStmt stmt = RewriteStmt(node.Body);
+            if (startValue == node.StartValue && endValue == node.EndValue && stepValue == node.StepValue && stmt == node.Body)
+                return node;
+            return new BoundForStmt(node.Variable, startValue, endValue, stepValue, stmt, node.BodyLabel, node.BreakLabel, node.ContinueLabel);
         }
 
         protected virtual BoundStmt RewriteLabelStmt(BoundLabelStmt node) => node;

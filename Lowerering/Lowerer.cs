@@ -1,4 +1,5 @@
-﻿using Delta.Binding;
+﻿using Delta.Analysis.Nodes;
+using Delta.Binding;
 using Delta.Binding.BoundNodes;
 using Delta.Symbols;
 using System.Collections.Immutable;
@@ -67,6 +68,29 @@ namespace Delta.Lowerering
             BoundCondGotoStmt gotoTrue = new(node.BodyLabel, node.Condition);
             BoundLabelStmt breakLabelStmt = new(node.BreakLabel);
             return RewriteStmt(new BoundBlockStmt(ImmutableArray.Create(gotoContinue, bodyLabelStmt, node.Body, continueLabelStmt, gotoTrue, breakLabelStmt)));
+        }
+
+        protected override BoundStmt RewriteForStmt(BoundForStmt node)
+        {
+            BoundVarStmt varStmt = new(node.Variable, node.StartValue);
+            BoundBinaryExpr descending = new(node.StartValue, BoundBinOperator.Bind(NodeKind.Greater, TypeSymbol.Number, TypeSymbol.Number)!, node.EndValue);
+            BoundNameExpr nameExpr = new(node.Variable);
+            BoundBinaryExpr newValueIncr = new(nameExpr, BoundBinOperator.Bind(NodeKind.Plus, TypeSymbol.Number, TypeSymbol.Number)!, node.StepValue ?? new BoundLiteralExpr(1d, TypeSymbol.Number));
+            BoundBinaryExpr newValueDesc = new(nameExpr, BoundBinOperator.Bind(NodeKind.Minus, TypeSymbol.Number, TypeSymbol.Number)!, node.StepValue ?? new BoundLiteralExpr(1d, TypeSymbol.Number));
+            BoundIfStmt incrStmt = new(descending,
+                new BoundExprStmt(new BoundAssignExpr(node.Variable, newValueDesc)),
+                new BoundExprStmt(new BoundAssignExpr(node.Variable, newValueIncr)));
+            BoundLabelStmt continueLabelStmt = new(node.ContinueLabel);
+            BoundBlockStmt body = new([node.Body, continueLabelStmt, incrStmt]);
+
+            BoundGotoStmt gotoContinue = new(node.ContinueLabel);
+            BoundLabelStmt bodyLabelStmt = new(node.BodyLabel);
+            BoundLabelStmt breakLabelStmt = new(node.BreakLabel);
+
+            BoundBinaryExpr conditionIncr = new(nameExpr, BoundBinOperator.Bind(NodeKind.LessEq, TypeSymbol.Number, TypeSymbol.Number)!, node.EndValue);
+            BoundBinaryExpr conditionDesc = new(nameExpr, BoundBinOperator.Bind(NodeKind.GreaterEq, TypeSymbol.Number, TypeSymbol.Number)!, node.EndValue);
+            BoundIfStmt gotoTrue = new(descending, new BoundCondGotoStmt(node.BodyLabel, conditionDesc), new BoundCondGotoStmt(node.BodyLabel, conditionIncr));
+            return RewriteStmt(new BoundBlockStmt([varStmt, gotoContinue, bodyLabelStmt, body, gotoTrue, breakLabelStmt]));
         }
     }
 }

@@ -79,17 +79,25 @@ namespace Delta.Evaluation
                     {
                         VarSymbol variable = ((BoundVarStmt)s).Variable;
                         object? value = ExecuteExpr(((BoundVarStmt)s).Value) ?? throw new Exception($"Variable '{variable.Name}' has no value.");
-                        if (!(variable is GlobalVarSymbol
-                              ? _globals
-                              : _locals.Peek()).TryAdd(variable, value))
+                        if ((variable is GlobalVarSymbol
+                                ? _globals
+                                : _locals.Peek()).Any(v => v.Key.Name == variable.Name))
                         {
+                            foreach (KeyValuePair<VarSymbol, object?> kv in variable is GlobalVarSymbol
+                               ? _globals
+                               : _locals.Peek())
+                                if (kv.Key.Name == variable.Name)
+                                    (variable is GlobalVarSymbol
+                                  ? _globals
+                                  : _locals.Peek()).Remove(kv.Key);
                             (variable is GlobalVarSymbol
                               ? _globals
-                              : _locals.Peek()).Remove(variable);
-                            (variable is GlobalVarSymbol
-                              ? _globals
-                              : _locals.Peek()).Add(variable, value);
+                              : _locals.Peek()).TryAdd(variable, value);
                         }
+                        else
+                            (variable is GlobalVarSymbol
+                                ? _globals
+                                : _locals.Peek()).TryAdd(variable, value);
 
                         _locals.Peek().Add(variable, value);
                         ++index;
