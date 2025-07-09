@@ -36,15 +36,35 @@ namespace Delta.Symbols
     {
     }
 
-    internal class FnSymbol(string name, TypeSymbol type, ImmutableArray<ParamSymbol> parameters, FnDecl? decl = null) : Symbol(name)
+    internal class FnSymbol(string name, TypeSymbol returnType, ImmutableArray<ParamSymbol> parameters, FnDecl? decl = null) : Symbol(name)
     {
-        public TypeSymbol Type { get; } = type;
+        public TypeSymbol ReturnType { get; } = returnType;
         public ImmutableArray<ParamSymbol> Parameters { get; } = parameters;
         public FnDecl? Decl { get; } = decl;
     }
 
-    internal sealed class ClassSymbol(string name, ClassDecl decl) : Symbol(name)
+    internal enum Accessibility
     {
+        Pub, Priv
+    }
+
+    internal sealed class PropertySymbol(Accessibility accessibility, string name, TypeSymbol type, bool mutable) : VarSymbol(name, type, mutable)
+    {
+        public Accessibility Accessibility { get; } = accessibility;
+    }
+
+    internal sealed class MethodSymbol(Accessibility accessibility, string name, TypeSymbol returnType, ImmutableArray<ParamSymbol> parameters, MethodDecl? decl = null) : Symbol(name)
+    {
+        public Accessibility Accessibility { get; } = accessibility;
+        public TypeSymbol ReturnType { get; } = returnType;
+        public ImmutableArray<ParamSymbol> Parameters { get; } = parameters;
+        public MethodDecl? Decl { get; } = decl;
+    }
+
+    internal sealed class ClassSymbol(string name, ImmutableArray<PropertySymbol> properties, ImmutableArray<MethodSymbol> methods, ClassDecl decl) : Symbol(name)
+    {
+        public ImmutableArray<PropertySymbol> Properties { get; } = properties;
+        public ImmutableArray<MethodSymbol> Methods { get; } = methods;
         public ClassDecl Decl { get; } = decl;
     }
 

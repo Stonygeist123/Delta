@@ -29,7 +29,7 @@ namespace Delta.Analysis.Nodes
         // Stmts
         ExprStmt, VarStmt, BlockStmt, IfStmt, ElseStmt, LoopStmt, ForStmt, RetStmt, BreakStmt, ContinueStmt, ErrorStmt,
 
-        FnDecl, ClassDecl
+        FnDecl, ClassDecl, MethodDecl, PropertyDecl
     }
 
     internal abstract class Node(SyntaxTree syntaxTree)

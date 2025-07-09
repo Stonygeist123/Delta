@@ -8,11 +8,12 @@ using System.Collections.Immutable;
 
 namespace Delta.Binding
 {
-    internal class Binder(BoundScope _globalScope, FnSymbol? fnSymbol = null)
+    internal class Binder(BoundScope _globalScope, FnSymbol? fnSymbol = null, ClassSymbol? _classSymbol = null)
     {
         private readonly DiagnosticBag _diagnostics = [];
         private BoundScope _scope = _globalScope;
         private readonly FnSymbol? _fn = fnSymbol;
+        private readonly ClassSymbol? _class = _classSymbol;
         public DiagnosticBag Diagnostics => _diagnostics;
         private readonly Stack<(LabelSymbol BreakLabel, LabelSymbol ContinueLabel)> _loopStack = new();
         private int _labelCounter = 0;
@@ -27,7 +28,7 @@ namespace Delta.Binding
             {
                 Binder binder = new(parentScope, fn);
                 BoundBlockStmt body = Lowerer.Lower(binder.BindStmt(fn.Decl!.Body));
-                if (fn.Type != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(body))
+                if (fn.ReturnType != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(body))
                     binder._diagnostics.Report(fn.Decl.Location, $"All code paths must return a value.");
 
                 fnBodies.Add(fn, body);
@@ -128,12 +129,12 @@ namespace Delta.Binding
                 }
             }
 
-            ImmutableArray<ParamSymbol> paramList = paramListBuilder.ToImmutableArray();
-            Binder binder = new(new(_scope), new(name, retType, paramList, null));
-            foreach (ParamSymbol param in paramList)
+            ImmutableArray<ParamSymbol> parameters = paramListBuilder.ToImmutableArray();
+            Binder binder = new(new(_scope), new(name, retType, parameters, null));
+            foreach (ParamSymbol param in parameters)
                 binder._scope.TryDeclareVar(param);
 
-            FnSymbol fn = new(name, retType, paramList, decl);
+            FnSymbol fn = new(name, retType, parameters, decl);
             if (!_scope.TryDeclareFn(fn))
                 _diagnostics.Report(decl.Name.Location, $"Function '{name}' is already defined.");
         }
@@ -142,14 +143,92 @@ namespace Delta.Binding
         {
             if (_fn is not null)
             {
-                _diagnostics.Report(decl.Keyword.Location, $"Cannot class in function.");
+                _diagnostics.Report(decl.Keyword.Location, $"Cannot declare class inside of function.");
+                return;
+            }
+
+            if (_class is not null)
+            {
+                _diagnostics.Report(decl.Keyword.Location, $"Cannot declare class inside of class.");
+                return;
+            }
+
+            if (_scope.Parent is not null)
+            {
+                _diagnostics.Report(decl.Keyword.Location, $"Cannot declare class inside of scope.");
                 return;
             }
 
             string name = decl.Name.Lexeme;
-            ClassSymbol symbol = new(name, decl);
+            ClassSymbol classSymbol = new(name, [.. decl.Properties.Select(p =>
+            {
+                Accessibility accessibility = p.Accessibility?.Kind == NodeKind.Pub ? Accessibility.Pub : Accessibility.Priv;
+                BoundExpr boundValue = BindExpr(p.Value);
+                return new PropertySymbol(accessibility, p.Name.Lexeme, p.TypeClause is null ? boundValue.Type : BindTypeClause(p.TypeClause), p.MutToken is not null);
+            })], [.. decl.Methods.Select(m =>
+            {
+                Accessibility accessibility = m.Accessibility?.Kind == NodeKind.Pub ? Accessibility.Pub : Accessibility.Priv;
+                TypeSymbol retType = BindTypeClause(m.ReturnType, true);
+                return new MethodSymbol(accessibility, m.Name.Lexeme, retType, m.Parameters is null ? [] : [.. m.Parameters.ParamList.Select(p => new ParamSymbol(p.Name.Lexeme, BindTypeClause(p.TypeClause)))]);
+            })], decl);
+
+            ImmutableArray<PropertySymbol>.Builder properties = ImmutableArray.CreateBuilder<PropertySymbol>();
+            ImmutableArray<MethodSymbol>.Builder methods = ImmutableArray.CreateBuilder<MethodSymbol>();
+            foreach (PropertyDecl propDecl in decl.Properties)
+            {
+                Accessibility accessibility = propDecl.Accessibility?.Kind == NodeKind.Pub ? Accessibility.Pub : Accessibility.Priv;
+                BoundExpr boundValue = BindExpr(propDecl.Value);
+                string propName = propDecl.Name.Lexeme;
+                TypeSymbol type = propDecl.TypeClause is null ? boundValue.Type : BindTypeClause(propDecl.TypeClause);
+                if (boundValue.Type != type)
+                    _diagnostics.Report(propDecl.Value.Location, $"Cannot assign value of type '{boundValue.Type}' to property '{propName}' of type '{type}'.");
+
+                if (boundValue.Type == TypeSymbol.Void)
+                    _diagnostics.Report(propDecl.Value.Location, $"Value assigned to property '{propName}' cannot be of type 'void'.");
+
+                PropertySymbol prop = new(accessibility, propDecl.Name.Lexeme, type, propDecl.MutToken is not null);
+            }
+
+            foreach (MethodDecl methodDecl in decl.Methods)
+            {
+                Accessibility accessibility = methodDecl.Accessibility?.Kind == NodeKind.Pub ? Accessibility.Pub : Accessibility.Priv;
+                string methodName = methodDecl.Name.Lexeme;
+                TypeSymbol retType = BindTypeClause(methodDecl.ReturnType, true);
+                ImmutableArray<ParamSymbol>.Builder paramListBuilder = ImmutableArray.CreateBuilder<ParamSymbol>();
+                if (methodDecl.Parameters is not null)
+                {
+                    HashSet<string> seenParameters = [];
+                    foreach (Param param in methodDecl.Parameters.ParamList)
+                    {
+                        string pName = param.Name.Lexeme;
+                        if (!seenParameters.Add(pName))
+                            _diagnostics.Report(param.Name.Location, $"Parameter \"{pName}\" was already declared.");
+                        else
+                        {
+                            TypeSymbol? pType = BindTypeClause(param.TypeClause);
+                            if (pType is null)
+                                _diagnostics.Report(param.TypeClause.Name.Location, $"Expected type\": <type>\".");
+                            else
+                                paramListBuilder.Add(new ParamSymbol(pName, pType));
+                        }
+                    }
+                }
+
+                ImmutableArray<ParamSymbol> parameters = paramListBuilder.ToImmutableArray();
+                Binder binder = new(new(_scope), new(methodName, retType, parameters, null), classSymbol);
+                foreach (ParamSymbol param in parameters)
+                    binder._scope.TryDeclareVar(param);
+
+                MethodSymbol method = new(accessibility, methodName, retType, parameters, methodDecl);
+                if (methods.Any(m => m.Name == methodName))
+                    _diagnostics.Report(methodDecl.Name.Location, $"Method '{methodName}' is already declared.");
+                else
+                    methods.Add(method);
+            }
+
+            ClassSymbol symbol = new(name, properties.ToImmutable(), methods.ToImmutable(), decl);
             if (!_scope.TryDeclareClass(symbol))
-                _diagnostics.Report(decl.Name.Location, $"Class '{name}' is already defined.");
+                _diagnostics.Report(decl.Name.Location, $"Class '{name}' is already declared.");
         }
 
         public BoundStmt BindStmt(Stmt stmt) => stmt switch
@@ -291,25 +370,25 @@ namespace Delta.Binding
         {
             if (_fn is null)
             {
-                _diagnostics.Report(retStmt.Keyword.Location, "Return statement can only be used inside a function.");
+                _diagnostics.Report(retStmt.Keyword.Location, "Return statement can only be used inside of a function.");
                 return new BoundErrorStmt();
             }
 
             BoundExpr? value = retStmt.Value is null ? null : BindExpr(retStmt.Value);
-            if (value is null && _fn.Type != TypeSymbol.Void)
+            if (value is null && _fn.ReturnType != TypeSymbol.Void)
             {
                 _diagnostics.Report(retStmt.Location, $"Expected return value.");
                 value = new BoundError();
             }
 
-            if (value is not null && value.Type != TypeSymbol.Void && _fn.Type == TypeSymbol.Void)
+            if (value is not null && value.Type != TypeSymbol.Void && _fn.ReturnType == TypeSymbol.Void)
             {
-                _diagnostics.Report(retStmt.Value!.Location, $"Cannot return from void function '{_fn.Name}'.");
+                _diagnostics.Report(retStmt.Value!.Location, $"Cannot return from void {(_class is null ? "function" : "method")} '{_fn.Name}'.");
                 value = new BoundError();
             }
-            else if (value is not null && value.Type != _fn.Type)
+            else if (value is not null && value.Type != _fn.ReturnType)
             {
-                _diagnostics.Report(retStmt.Value!.Location, $"Cannot return value of type '{value.Type}' from function '{_fn.Name}'. Expected '{_fn.Type}'.");
+                _diagnostics.Report(retStmt.Value!.Location, $"Cannot return value of type '{value.Type}' from {(_class is null ? "function" : "method")} '{_fn.Name}'. Expected '{_fn.ReturnType}'.");
                 value = new BoundError();
             }
 

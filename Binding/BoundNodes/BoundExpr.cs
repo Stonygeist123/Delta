@@ -52,7 +52,7 @@ namespace Delta.Binding.BoundNodes
     {
         public FnSymbol Fn { get; } = fn;
         public ImmutableArray<BoundExpr> Args { get; } = Args;
-        public override TypeSymbol Type => Fn.Type;
+        public override TypeSymbol Type => Fn.ReturnType;
     }
 
     internal sealed class BoundError() : BoundExpr

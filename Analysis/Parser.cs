@@ -123,10 +123,57 @@ namespace Delta.Analysis
             Token lBrace = Current;
             if (!Match(NodeKind.LBrace))
                 return new ErrorStmt(_syntaxTree, keyword, name, lBrace);
+
+            ImmutableArray<PropertyDecl>.Builder properties = ImmutableArray.CreateBuilder<PropertyDecl>();
+            ImmutableArray<MethodDecl>.Builder methods = ImmutableArray.CreateBuilder<MethodDecl>();
+            while (Current.Kind != NodeKind.RBrace && !IsAtEnd())
+            {
+                Token? accessibility = Current;
+                if (accessibility.Kind != NodeKind.Pub && accessibility.Kind != NodeKind.Priv)
+                    accessibility = null;
+                else
+                    ++_current;
+
+                if (Current.Kind == NodeKind.Fn)
+                {
+                    MemberNode member = ParseFnDecl();
+                    if (member is FnDecl fnDecl)
+                    {
+                        MethodDecl method = new(fnDecl.SyntaxTree, accessibility, fnDecl.Keyword, fnDecl.Name, fnDecl.Parameters, fnDecl.ReturnType, fnDecl.Body);
+                        methods.Add(method);
+                    }
+                }
+                else if (Current.Kind == NodeKind.Identifier)
+                {
+                    Token? mutToken = null;
+                    if (Current.Kind == NodeKind.Mut)
+                        mutToken = Advance();
+
+                    Token varName = Current;
+                    if (!Match(NodeKind.Identifier))
+                        return new ErrorStmt(_syntaxTree, keyword, name);
+
+                    TypeClause? typeClause = ParseOptType();
+                    Token eqToken = Current;
+                    if (!Match(NodeKind.Eq))
+                        return new ErrorStmt(_syntaxTree, keyword, name, eqToken);
+
+                    Expr value = ParseExpr();
+                    Token semicolon = Advance();
+                    if (semicolon.Kind != NodeKind.Semicolon)
+                        _diagnostics.Report(semicolon.Location, $"Expected ';' after property declaration.");
+
+                    PropertyDecl property = new(_syntaxTree, accessibility, mutToken, varName, typeClause, eqToken, value, semicolon);
+                    properties.Add(property);
+                }
+                else
+                    _diagnostics.Report(Advance().Location, $"Expected property or method declaration.");
+            }
+
             Token rBrace = Current;
             if (!Match(NodeKind.RBrace))
                 return new ErrorStmt(_syntaxTree, keyword, name, lBrace, rBrace);
-            return new ClassDecl(_syntaxTree, keyword, name, lBrace, rBrace);
+            return new ClassDecl(_syntaxTree, keyword, name, lBrace, properties.ToImmutable(), methods.ToImmutable(), rBrace);
         }
 
         public Stmt ParseStmt()
@@ -137,27 +184,7 @@ namespace Delta.Analysis
                     return ParseBlockStmt();
 
                 case NodeKind.Var:
-                {
-                    Token keyword = Advance();
-                    Token? mutToken = null;
-                    if (Current.Kind == NodeKind.Mut)
-                        mutToken = Advance();
-
-                    Token name = Current;
-                    if (!Match(NodeKind.Identifier))
-                        return new ErrorStmt(_syntaxTree, keyword, name);
-
-                    TypeClause? typeClause = ParseOptType();
-                    Token eqToken = Current;
-                    if (!Match(NodeKind.Eq))
-                        return new ErrorStmt(_syntaxTree, keyword, name, eqToken);
-
-                    Expr value = ParseExpr();
-                    Token? semicolon = null;
-                    if (Current.Kind == NodeKind.Semicolon)
-                        semicolon = Advance();
-                    return new VarStmt(_syntaxTree, keyword, mutToken, name, typeClause, eqToken, value, semicolon);
-                }
+                    return ParseVarDecl();
 
                 case NodeKind.If:
                 {
@@ -258,6 +285,29 @@ namespace Delta.Analysis
             if (!Match(NodeKind.RBrace))
                 return new ErrorStmt(_syntaxTree, [lBrace, .. stmts, rBrace]);
             return new BlockStmt(_syntaxTree, lBrace, stmts, rBrace);
+        }
+
+        private Stmt ParseVarDecl()
+        {
+            Token keyword = Advance();
+            Token? mutToken = null;
+            if (Current.Kind == NodeKind.Mut)
+                mutToken = Advance();
+
+            Token name = Current;
+            if (!Match(NodeKind.Identifier))
+                return new ErrorStmt(_syntaxTree, keyword, name);
+
+            TypeClause? typeClause = ParseOptType();
+            Token eqToken = Current;
+            if (!Match(NodeKind.Eq))
+                return new ErrorStmt(_syntaxTree, keyword, name, eqToken);
+
+            Expr value = ParseExpr();
+            Token? semicolon = null;
+            if (Current.Kind == NodeKind.Semicolon)
+                semicolon = Advance();
+            return new VarStmt(_syntaxTree, keyword, mutToken, name, typeClause, eqToken, value, semicolon);
         }
 
         public Expr ParseExpr(int parentPrecedence = 0)

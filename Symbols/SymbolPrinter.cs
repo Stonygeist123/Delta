@@ -55,7 +55,7 @@ namespace Delta.Symbols
                     writer.WriteSpace();
                     writer.WritePunctuation(NodeKind.Arrow);
                     writer.WriteSpace();
-                    f.Type.WriteTo(writer);
+                    f.ReturnType.WriteTo(writer);
                     break;
 
                 case LabelSymbol:

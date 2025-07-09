@@ -1,4 +1,6 @@
-﻿namespace Delta.Analysis.Nodes
+﻿using System.Collections.Immutable;
+
+namespace Delta.Analysis.Nodes
 {
     internal abstract class MemberNode(SyntaxTree syntaxTree) : Node(syntaxTree)
     { }
@@ -13,11 +15,13 @@
         public override NodeKind Kind => NodeKind.FnDecl;
     }
 
-    internal sealed class ClassDecl(SyntaxTree syntaxTree, Token keyword, Token name, Token lBrace, Token rBrace) : MemberNode(syntaxTree)
+    internal sealed class ClassDecl(SyntaxTree syntaxTree, Token keyword, Token name, Token lBrace, ImmutableArray<PropertyDecl> properties, ImmutableArray<MethodDecl> methods, Token rBrace) : MemberNode(syntaxTree)
     {
         public Token Keyword { get; } = keyword;
         public Token Name { get; } = name;
         public Token LBrace { get; } = lBrace;
+        public ImmutableArray<PropertyDecl> Properties { get; } = properties;
+        public ImmutableArray<MethodDecl> Methods { get; } = methods;
         public Token RBrace { get; } = rBrace;
         public override NodeKind Kind => NodeKind.ClassDecl;
     }

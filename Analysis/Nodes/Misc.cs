@@ -25,6 +25,29 @@ namespace Delta.Analysis.Nodes
         public override NodeKind Kind => NodeKind.ParameterList;
     }
 
+    internal sealed class PropertyDecl(SyntaxTree syntaxTree, Token? accessibility, Token? mutToken, Token name, TypeClause? typeClause, Token eqToken, Expr value, Token semicolon) : Node(syntaxTree)
+    {
+        public Token? Accessibility { get; } = accessibility;
+        public Token? MutToken { get; } = mutToken;
+        public Token Name { get; } = name;
+        public TypeClause? TypeClause { get; } = typeClause;
+        public Token EqToken { get; } = eqToken;
+        public Expr Value { get; } = value;
+        public Token Semicolon { get; } = semicolon;
+        public override NodeKind Kind => NodeKind.PropertyDecl;
+    }
+
+    internal sealed class MethodDecl(SyntaxTree syntaxTree, Token? accessibility, Token keyword, Token name, ParameterList? parameters, TypeClause returnType, Stmt body) : Node(syntaxTree)
+    {
+        public Token? Accessibility { get; } = accessibility;
+        public Token Keyword { get; } = keyword;
+        public Token Name { get; } = name;
+        public ParameterList? Parameters { get; } = parameters;
+        public TypeClause ReturnType { get; } = returnType;
+        public Stmt Body { get; } = body;
+        public override NodeKind Kind => NodeKind.MethodDecl;
+    }
+
     internal class TypeClause(SyntaxTree syntaxTree, Token mark, Token type) : Node(syntaxTree)
     {
         public Token Mark { get; } = mark;
