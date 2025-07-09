@@ -37,13 +37,17 @@ namespace Delta.Analysis.Nodes
         public override NodeKind Kind => NodeKind.PropertyDecl;
     }
 
-    internal sealed class MethodDecl(SyntaxTree syntaxTree, Token? accessibility, Token keyword, Token name, ParameterList? parameters, TypeClause returnType, Stmt body) : Node(syntaxTree)
+    internal sealed class MethodDecl(SyntaxTree syntaxTree, Token? accessibility, Token keyword, Token name, ParameterList? parameters, TypeClause returnType, Stmt body) : FnDecl(syntaxTree, keyword, name, parameters, returnType, body)
+    {
+        public Token? Accessibility { get; } = accessibility;
+        public override NodeKind Kind => NodeKind.MethodDecl;
+    }
+
+    internal sealed class CtorDecl(SyntaxTree syntaxTree, Token? accessibility, Token keyword, ParameterList? parameters, Stmt body) : MemberNode(syntaxTree)
     {
         public Token? Accessibility { get; } = accessibility;
         public Token Keyword { get; } = keyword;
-        public Token Name { get; } = name;
         public ParameterList? Parameters { get; } = parameters;
-        public TypeClause ReturnType { get; } = returnType;
         public Stmt Body { get; } = body;
         public override NodeKind Kind => NodeKind.MethodDecl;
     }

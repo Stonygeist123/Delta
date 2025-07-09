@@ -55,6 +55,13 @@ namespace Delta.Binding.BoundNodes
         public override TypeSymbol Type => Fn.ReturnType;
     }
 
+    internal sealed class BoundInstanceExpr(ClassSymbol classSymbol, ImmutableArray<BoundExpr> Args) : BoundExpr
+    {
+        public ClassSymbol ClassSymbol { get; } = classSymbol;
+        public ImmutableArray<BoundExpr> Args { get; } = Args;
+        public override TypeSymbol Type => new(ClassSymbol.Name);
+    }
+
     internal sealed class BoundError() : BoundExpr
     {
         public override TypeSymbol Type => TypeSymbol.Error;

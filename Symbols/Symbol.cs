@@ -1,4 +1,5 @@
 ﻿using Delta.Analysis.Nodes;
+using Delta.Binding.BoundNodes;
 using System.Collections.Immutable;
 using System.Reflection;
 
@@ -48,9 +49,10 @@ namespace Delta.Symbols
         Pub, Priv
     }
 
-    internal sealed class PropertySymbol(Accessibility accessibility, string name, TypeSymbol type, bool mutable) : VarSymbol(name, type, mutable)
+    internal sealed class PropertySymbol(Accessibility accessibility, string name, TypeSymbol type, bool mutable, BoundExpr value) : VarSymbol(name, type, mutable)
     {
         public Accessibility Accessibility { get; } = accessibility;
+        public BoundExpr Value { get; } = value;
     }
 
     internal sealed class MethodSymbol(Accessibility accessibility, string name, TypeSymbol returnType, ImmutableArray<ParamSymbol> parameters, MethodDecl? decl = null) : Symbol(name)
@@ -61,8 +63,16 @@ namespace Delta.Symbols
         public MethodDecl? Decl { get; } = decl;
     }
 
-    internal sealed class ClassSymbol(string name, ImmutableArray<PropertySymbol> properties, ImmutableArray<MethodSymbol> methods, ClassDecl decl) : Symbol(name)
+    internal sealed class CtorSymbol(Accessibility accessibility, string className, ImmutableArray<ParamSymbol> parameters, CtorDecl? decl = null) : Symbol(className)
     {
+        public Accessibility Accessibility { get; } = accessibility;
+        public ImmutableArray<ParamSymbol> Parameters { get; } = parameters;
+        public CtorDecl? Decl { get; } = decl;
+    }
+
+    internal sealed class ClassSymbol(string name, CtorSymbol? ctor, ImmutableArray<PropertySymbol> properties, ImmutableArray<MethodSymbol> methods, ClassDecl decl) : Symbol(name)
+    {
+        public CtorSymbol? Ctor { get; } = ctor;
         public ImmutableArray<PropertySymbol> Properties { get; } = properties;
         public ImmutableArray<MethodSymbol> Methods { get; } = methods;
         public ClassDecl Decl { get; } = decl;

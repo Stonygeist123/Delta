@@ -58,12 +58,24 @@ namespace Delta.Analysis
             return members.ToImmutable();
         }
 
-        private MemberNode ParseFnDecl()
+        private MemberNode ParseFnDecl(bool inClass = false)
         {
+            Token? accessibility = inClass ? (Current.Kind == NodeKind.Pub || Current.Kind == NodeKind.Priv ? Advance() : null) : null;
+            if (accessibility?.Kind == NodeKind.Priv)
+                _diagnostics.Report(accessibility.Location, $"The constructor cannot be private.");
+
             Token keyword = Advance();
-            Token name = Current;
-            if (!Match(NodeKind.Identifier))
+            Token? name = Current;
+            if (inClass)
+            {
+                if (name.Kind != NodeKind.Identifier)
+                    name = null;
+                else
+                    name = Advance();
+            }
+            else if (!Match(NodeKind.Identifier))
                 return new ErrorStmt(_syntaxTree, keyword, name);
+
             ParameterList? parameters = null;
             Token lParen = Current;
             if (lParen.Kind == NodeKind.LParen)
@@ -94,7 +106,9 @@ namespace Delta.Analysis
                 parameters = new ParameterList(_syntaxTree, lParen, paramList, rParen);
             }
 
-            TypeClause returnType = ParseTypeClause(NodeKind.Arrow);
+            TypeClause? returnType = null;
+            if (name is not null)
+                returnType = ParseTypeClause(NodeKind.Arrow);
             Stmt ParseExprStmt()
             {
                 Expr expr = ParseExpr();
@@ -109,9 +123,10 @@ namespace Delta.Analysis
             }
 
             Stmt body = Current.Kind == NodeKind.LBrace ? ParseBlockStmt() : ParseExprStmt();
-            return body is BlockStmt or ExprStmt
-                ? new FnDecl(_syntaxTree, keyword, name, parameters, returnType, body)
-                : new ErrorStmt(_syntaxTree, keyword, name, body);
+            if (inClass)
+                return name is null ? new CtorDecl(_syntaxTree, accessibility, keyword, parameters, body) : new MethodDecl(_syntaxTree, accessibility, keyword, name, parameters, returnType!, body);
+            else
+                return new FnDecl(_syntaxTree, keyword, name!, parameters, returnType!, body);
         }
 
         private MemberNode ParseClassDecl()
@@ -126,6 +141,7 @@ namespace Delta.Analysis
 
             ImmutableArray<PropertyDecl>.Builder properties = ImmutableArray.CreateBuilder<PropertyDecl>();
             ImmutableArray<MethodDecl>.Builder methods = ImmutableArray.CreateBuilder<MethodDecl>();
+            CtorDecl? ctorDecl = null;
             while (Current.Kind != NodeKind.RBrace && !IsAtEnd())
             {
                 Token? accessibility = Current;
@@ -136,12 +152,11 @@ namespace Delta.Analysis
 
                 if (Current.Kind == NodeKind.Fn)
                 {
-                    MemberNode member = ParseFnDecl();
-                    if (member is FnDecl fnDecl)
-                    {
-                        MethodDecl method = new(fnDecl.SyntaxTree, accessibility, fnDecl.Keyword, fnDecl.Name, fnDecl.Parameters, fnDecl.ReturnType, fnDecl.Body);
+                    MemberNode member = ParseFnDecl(true);
+                    if (member is MethodDecl method)
                         methods.Add(method);
-                    }
+                    else if (member is CtorDecl)
+                        ctorDecl = member as CtorDecl;
                 }
                 else if (Current.Kind == NodeKind.Identifier)
                 {
@@ -173,7 +188,7 @@ namespace Delta.Analysis
             Token rBrace = Current;
             if (!Match(NodeKind.RBrace))
                 return new ErrorStmt(_syntaxTree, keyword, name, lBrace, rBrace);
-            return new ClassDecl(_syntaxTree, keyword, name, lBrace, properties.ToImmutable(), methods.ToImmutable(), rBrace);
+            return new ClassDecl(_syntaxTree, keyword, name, lBrace, properties.ToImmutable(), methods.ToImmutable(), ctorDecl, rBrace);
         }
 
         public Stmt ParseStmt()

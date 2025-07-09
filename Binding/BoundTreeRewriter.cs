@@ -28,6 +28,7 @@ namespace Delta.Binding
             BoundNameExpr => RewriteNameExpr((BoundNameExpr)node),
             BoundAssignExpr => RewriteAssignmentExpr((BoundAssignExpr)node),
             BoundCallExpr => RewriteCallExpr((BoundCallExpr)node),
+            BoundInstanceExpr => RewriteInstanceExpr((BoundInstanceExpr)node),
             BoundError => RewriteErrorExpr((BoundError)node),
             _ => throw new Exception($"Unexpected node to lower: \"{node.GetType().Name}\"."),
         };
@@ -165,7 +166,7 @@ namespace Delta.Binding
         protected virtual BoundExpr RewriteCallExpr(BoundCallExpr node)
         {
             ImmutableArray<BoundExpr>.Builder? builder = null;
-            for (int i = 0; i < node.Args.Length; i++)
+            for (int i = 0; i < node.Args.Length; ++i)
             {
                 BoundExpr stmt = node.Args[i];
                 BoundExpr oldExpr = stmt;
@@ -187,6 +188,33 @@ namespace Delta.Binding
                 return node;
 
             return new BoundCallExpr(node.Fn, builder.MoveToImmutable());
+        }
+
+        protected virtual BoundExpr RewriteInstanceExpr(BoundInstanceExpr node)
+        {
+            ImmutableArray<BoundExpr>.Builder? builder = null;
+            for (int i = 0; i < node.Args.Length; ++i)
+            {
+                BoundExpr stmt = node.Args[i];
+                BoundExpr oldExpr = stmt;
+                BoundExpr newExpr = RewriteExpr(oldExpr);
+                if (newExpr != oldExpr)
+                {
+                    if (builder is null)
+                    {
+                        builder = ImmutableArray.CreateBuilder<BoundExpr>(node.Args.Length);
+                        for (int j = 0; j < i; ++j)
+                            builder.Add(node.Args[j]);
+                    }
+                }
+
+                builder?.Add(newExpr);
+            }
+
+            if (builder is null)
+                return node;
+
+            return new BoundInstanceExpr(node.ClassSymbol, builder.MoveToImmutable());
         }
 
         protected virtual BoundError RewriteErrorExpr(BoundError expr) => expr;

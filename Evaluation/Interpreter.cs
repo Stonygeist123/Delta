@@ -2,6 +2,7 @@
 using Delta.Binding;
 using Delta.Binding.BoundNodes;
 using Delta.Symbols;
+using System.Collections.Immutable;
 
 namespace Delta.Evaluation
 {
@@ -9,9 +10,11 @@ namespace Delta.Evaluation
     {
         private readonly Stack<Dictionary<VarSymbol, object?>> _locals = new();
         private readonly Dictionary<FnSymbol, BoundBlockStmt> _fns = [];
+        private readonly Dictionary<ClassSymbol, ClassData> _classes = [];
         public BoundProgram _program;
         public Dictionary<VarSymbol, object?> _globals;
         private object? _lastValue = null;
+        private ClassInstance? _instance = null;
 
         public Interpreter(BoundProgram program, Dictionary<VarSymbol, object?> variables)
         {
@@ -27,6 +30,8 @@ namespace Delta.Evaluation
             {
                 foreach ((FnSymbol fn, BoundBlockStmt body) in current.Functions.Where(fn => fn.Key.Name != "$eval"))
                     _fns.TryAdd(fn, body);
+                foreach ((ClassSymbol symbol, ClassData data) in current.Classes)
+                    _classes.TryAdd(symbol, data);
                 current = current.Previous;
             }
         }
@@ -194,6 +199,31 @@ namespace Delta.Evaluation
                     }
 
                     return result;
+                }
+
+                case BoundInstanceExpr:
+                {
+                    ClassSymbol classSymbol = ((BoundInstanceExpr)expr).ClassSymbol;
+                    ClassData data = _classes[classSymbol];
+                    if (classSymbol.Ctor is not null)
+                    {
+                        List<object?> args = [.. ((BoundInstanceExpr)expr).Args.Select(ExecuteExpr)];
+                        Dictionary<VarSymbol, object?> locals = [];
+                        for (int i = 0; i < args.Count; i++)
+                        {
+                            ParamSymbol parameter = classSymbol.Ctor.Parameters[i];
+                            locals.Add(parameter, args[i]);
+                        }
+
+                        _locals.Push(locals);
+                    }
+
+                    ClassInstance instance = new(data, data.Properties.Select(p => new KeyValuePair<PropertySymbol, object?>(p, ExecuteExpr(p.Value))).ToImmutableDictionary());
+                    _instance = instance;
+                    if (data.Ctor is not null)
+                        ExecuteStmt(data.Ctor);
+                    _instance = null;
+                    return instance;
                 }
 
                 default:

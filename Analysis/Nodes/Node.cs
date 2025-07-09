@@ -42,7 +42,7 @@ namespace Delta.Analysis.Nodes
             get
             {
                 IEnumerable<Node> children = GetChildren();
-                return new(children.First().Span.Start, children.Last().Span.End);
+                return TextSpan.From(children.First().Span.Start, children.Last().Span.End);
             }
         }
 
