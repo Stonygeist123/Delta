@@ -43,14 +43,12 @@ namespace Delta.Analysis
             while (!IsAtEnd())
             {
                 Token start = Current;
-                MemberNode member;
                 if (start.Kind == NodeKind.Fn)
-                    member = ParseFnDecl();
+                    members.Add(ParseFnDecl());
                 else if (start.Kind == NodeKind.Class)
-                    member = ParseClassDecl();
+                    members.Add(ParseClassDecl());
                 else
-                    member = ParseStmt();
-                members.Add(member);
+                    members.Add(ParseStmt());
                 if (Current == start)
                     Advance();
             }
@@ -377,7 +375,6 @@ namespace Delta.Analysis
                     expr = new ErrorExpr(_syntaxTree, firstToken);
                     break;
             }
-            ;
 
             return CheckExtension(expr, parentPrecedence);
         }

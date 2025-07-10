@@ -19,6 +19,7 @@ namespace Delta.Evaluation
     internal sealed class Compilation(Compilation? previous, params SyntaxTree[] syntaxTrees)
     {
         private BoundGlobalScope? _globalScope;
+        public ImmutableArray<ClassSymbol> Classes => GlobalScope.Classes;
         public ImmutableArray<FnSymbol> Functions => GlobalScope.Functions;
         public ImmutableArray<VarSymbol> Variables => GlobalScope.Variables;
         public Compilation? Previous { get; } = previous;
@@ -41,29 +42,6 @@ namespace Delta.Evaluation
         }
 
         private BoundProgram GetProgram() => Binder.BindProgram(Previous?.GetProgram(), GlobalScope);
-
-        public IEnumerable<Symbol> GetSymbols()
-        {
-            Compilation? submission = this;
-            HashSet<string> seenNames = [];
-            while (submission is not null)
-            {
-                foreach (FnSymbol fn in submission.Functions)
-                    if (seenNames.Add(fn.Name))
-                        yield return fn;
-
-                foreach (VarSymbol var in submission.Variables)
-                    if (seenNames.Add(var.Name))
-                        yield return var;
-
-                List<FnSymbol?> builtInFns = [.. typeof(BuiltIn).GetFields().Where(fi => fi.FieldType == typeof(FnSymbol)).Select(fi => (FnSymbol?)fi.GetValue(null))];
-                foreach (FnSymbol? biFn in builtInFns)
-                    if (biFn is not null && seenNames.Add(biFn.Name))
-                        yield return biFn;
-
-                submission = submission.Previous;
-            }
-        }
 
         public Compilation ContinueWith(SyntaxTree syntaxTree) => new(this, syntaxTree);
 

@@ -28,7 +28,6 @@ namespace Delta.Binding
         {
             if (TryLookupFn(symbol.Name, out _))
                 return false;
-
             _fns.Add(symbol.Name, symbol);
             return true;
         }
@@ -37,7 +36,6 @@ namespace Delta.Binding
         {
             if (TryLookupClass(symbol.Name, out _))
                 return false;
-
             _classes.Add(symbol.Name, symbol);
             return true;
         }

@@ -441,6 +441,7 @@ namespace Delta.Binding
             NameExpr => BindNameExpr((NameExpr)expr),
             AssignExpr => BindAssignExpr((AssignExpr)expr),
             CallExpr => BindCallExpr((CallExpr)expr),
+            ErrorExpr => new BoundError(),
             _ => throw new NotSupportedException($"Unsupported expression type: {expr.GetType()}")
         };
 
@@ -523,8 +524,22 @@ namespace Delta.Binding
         private BoundExpr BindCallExpr(CallExpr expr)
         {
             string name = expr.Name.Lexeme;
-            ClassSymbol? classSymbol = _scope.Classes.Any(c => c.Name == name) ? _scope.Classes.SingleOrDefault(c => c.Name == name) : null;
-            if (classSymbol is null)
+            if (_scope.TryLookupClass(name, out ClassSymbol? classSymbol))
+            {
+                ImmutableArray<BoundExpr> args = [.. expr.Args.Select(a => BindExpr(a.Expr))];
+                if (args.Length != (classSymbol.Ctor?.Parameters.Length ?? 0))
+                {
+                    _diagnostics.Report(expr.Location, $"Expected '{classSymbol.Ctor?.Parameters.Length ?? 0}' arguments, but got {args.Length}.");
+                    return new BoundError();
+                }
+
+                if (classSymbol.Ctor is not null)
+                    for (int i = 0; i < args.Length; i++)
+                        if (args[i].Type != classSymbol.Ctor.Parameters[i].Type)
+                            _diagnostics.Report(expr.Args[i].Location, $"Argument '{classSymbol.Ctor.Parameters[i].Name}' of function '{name}' must be of type '{classSymbol.Ctor.Parameters[i].Type}', but got '{args[i].Type}'.");
+                return new BoundInstanceExpr(classSymbol, args);
+            }
+            else
             {
                 if (!_scope.TryLookupFn(name, out FnSymbol? fn))
                 {
@@ -543,21 +558,6 @@ namespace Delta.Binding
                     if (args[i].Type != fn.Parameters[i].Type)
                         _diagnostics.Report(expr.Args[i].Location, $"Argument '{fn.Parameters[i].Name}' of function '{name}' must be of type '{fn.Parameters[i].Type}', but got '{args[i].Type}'.");
                 return new BoundCallExpr(fn, args);
-            }
-            else
-            {
-                ImmutableArray<BoundExpr> args = [.. expr.Args.Select(a => BindExpr(a.Expr))];
-                if (args.Length != (classSymbol.Ctor?.Parameters.Length ?? 0))
-                {
-                    _diagnostics.Report(expr.Location, $"Expected '{classSymbol.Ctor?.Parameters.Length ?? 0}' arguments, but got {args.Length}.");
-                    return new BoundError();
-                }
-
-                if (classSymbol.Ctor is not null)
-                    for (int i = 0; i < args.Length; i++)
-                        if (args[i].Type != classSymbol.Ctor.Parameters[i].Type)
-                            _diagnostics.Report(expr.Args[i].Location, $"Argument '{classSymbol.Ctor.Parameters[i].Name}' of function '{name}' must be of type '{classSymbol.Ctor.Parameters[i].Type}', but got '{args[i].Type}'.");
-                return new BoundInstanceExpr(classSymbol, args);
             }
         }
 
