@@ -55,12 +55,10 @@ namespace Delta.Symbols
         public BoundExpr Value { get; } = value;
     }
 
-    internal sealed class MethodSymbol(Accessibility accessibility, string name, TypeSymbol returnType, ImmutableArray<ParamSymbol> parameters, MethodDecl? decl = null) : Symbol(name)
+    internal sealed class MethodSymbol(Accessibility accessibility, string name, TypeSymbol returnType, ImmutableArray<ParamSymbol> parameters, MethodDecl? decl = null) : FnSymbol(name, returnType, parameters)
     {
         public Accessibility Accessibility { get; } = accessibility;
-        public TypeSymbol ReturnType { get; } = returnType;
-        public ImmutableArray<ParamSymbol> Parameters { get; } = parameters;
-        public MethodDecl? Decl { get; } = decl;
+        public new MethodDecl? Decl { get; } = decl;
     }
 
     internal sealed class CtorSymbol(Accessibility accessibility, string className, ImmutableArray<ParamSymbol> parameters, CtorDecl? decl = null) : Symbol(className)
@@ -82,8 +80,10 @@ namespace Delta.Symbols
     {
     }
 
-    internal sealed class TypeSymbol(string name) : Symbol(name)
+    internal sealed class TypeSymbol(string name, ClassSymbol? classSymbol = null) : Symbol(name)
     {
+        public ClassSymbol? ClassSymbol { get; } = classSymbol;
+        public bool IsClass => ClassSymbol is not null;
         public static TypeSymbol Number => new("number");
         public static TypeSymbol String => new("string");
         public static TypeSymbol Bool => new("bool");

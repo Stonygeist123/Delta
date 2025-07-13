@@ -6,6 +6,7 @@ using Delta.Evaluation;
 using Delta.Lowerering;
 using Delta.Symbols;
 using System.Collections.Immutable;
+using System.Data;
 
 namespace Delta.Binding
 {
@@ -37,12 +38,24 @@ namespace Delta.Binding
                 diagnostics.AddRange(binder.Diagnostics);
             }
 
-            foreach (ClassSymbol symbol in scope.Classes)
+            foreach (ClassSymbol classSymbol in scope.Classes)
             {
-                Binder binder = new(parentScope, null, symbol);
-                BoundBlockStmt? ctor = symbol.Ctor?.Decl is null ? null : Lowerer.Lower(binder.BindStmt(symbol.Ctor.Decl.Body));
-                ClassData data = new(symbol.Name, ctor, symbol.Properties, symbol.Methods.Select(m => new KeyValuePair<MethodSymbol, BoundBlockStmt>(m, Lowerer.Lower(binder.BindStmt(m.Decl!.Body)))).ToImmutableDictionary());
-                classes.Add(symbol, data);
+                Binder binder = new(parentScope, null, classSymbol);
+                if (classSymbol.Ctor is not null)
+                    foreach (ParamSymbol p in classSymbol.Ctor.Parameters)
+                        binder._scope.TryDeclareVar(p);
+                BoundBlockStmt? ctor = classSymbol.Ctor?.Decl is null ? null : Lowerer.Lower(binder.BindStmt(classSymbol.Ctor.Decl.Body));
+                diagnostics.AddRange(binder.Diagnostics);
+                ClassData data = new(classSymbol.Name, ctor, classSymbol.Properties, classSymbol.Methods.Select(m =>
+                {
+                    Binder binder = new(parentScope, null, classSymbol);
+                    foreach (ParamSymbol p in m.Parameters)
+                        binder._scope.TryDeclareVar(p);
+                    KeyValuePair<MethodSymbol, BoundBlockStmt> kv = new(m, Lowerer.Lower(binder.BindStmt(m.Decl!.Body)));
+                    diagnostics.AddRange(binder.Diagnostics);
+                    return kv;
+                }).ToImmutableDictionary());
+                classes.Add(classSymbol, data);
             }
 
             ImmutableArray<BoundStmt> stmts = globalScope.Stmt.Stmts;
@@ -187,7 +200,9 @@ namespace Delta.Binding
                 }
             }
 
-            CtorSymbol? ctor = decl.Ctor is null ? null : new(Accessibility.Pub, name, ctorParametersBuilder.ToImmutable(), decl.Ctor);
+            CtorSymbol? ctor = decl.Ctor is null ? null : new(decl.Ctor.Accessibility?.Kind == NodeKind.Priv ? Accessibility.Priv : Accessibility.Pub, name, ctorParametersBuilder.ToImmutable(), decl.Ctor);
+            if (ctor?.Accessibility == Accessibility.Priv)
+                _diagnostics.Report(ctor!.Decl!.Accessibility!.Location, $"The constructor cannot be private.");
             ClassSymbol classSymbol = new(name, ctor, [.. decl.Properties.Select(p =>
             {
                 Accessibility accessibility = p.Accessibility?.Kind == NodeKind.Pub ? Accessibility.Pub : Accessibility.Priv;
@@ -203,6 +218,8 @@ namespace Delta.Binding
             Binder binder = new(_scope, null, classSymbol);
             if (decl.Ctor is not null)
             {
+                foreach (ParamSymbol p in ctorParametersBuilder)
+                    binder._scope.TryDeclareVar(p);
                 binder.BindStmt(decl.Ctor.Body);
                 _diagnostics.AddRange(binder.Diagnostics);
             }
@@ -259,7 +276,6 @@ namespace Delta.Binding
                     _diagnostics.Report(methodDecl.Name.Location, $"Method '{methodName}' is already declared.");
                 else
                     methods.Add(method);
-
                 binder.BindStmt(methodDecl.Body);
             }
 
@@ -440,7 +456,10 @@ namespace Delta.Binding
             GroupingExpr => BindGroupingExpr((GroupingExpr)expr),
             NameExpr => BindNameExpr((NameExpr)expr),
             AssignExpr => BindAssignExpr((AssignExpr)expr),
+            GetExpr => BindGetExpr((GetExpr)expr),
+            SetExpr => BindSetExpr((SetExpr)expr),
             CallExpr => BindCallExpr((CallExpr)expr),
+            MethodExpr => BindMethodExpr((MethodExpr)expr),
             ErrorExpr => new BoundError(),
             _ => throw new NotSupportedException($"Unsupported expression type: {expr.GetType()}")
         };
@@ -489,9 +508,9 @@ namespace Delta.Binding
         private BoundExpr BindNameExpr(NameExpr expr)
         {
             string name = expr.Name.Lexeme;
-            if (_scope.TryLookupVar(name, out VarSymbol? variable))
+            VarSymbol? variable = _class?.Properties.SingleOrDefault(p => p.Name == name);
+            if (variable is not null || _scope.TryLookupVar(name, out variable))
                 return new BoundNameExpr(variable);
-
             _diagnostics.Report(expr.Name.Location, $"Variable '{name}' is not defined.");
             return new BoundError();
         }
@@ -499,26 +518,87 @@ namespace Delta.Binding
         private BoundExpr BindAssignExpr(AssignExpr expr)
         {
             string name = expr.Name.Lexeme;
-            if (!_scope.TryLookupVar(name, out VarSymbol? variable))
+            VarSymbol? variable = _class?.Properties.SingleOrDefault(p => p.Name == name);
+            if (variable is not null || _scope.TryLookupVar(name, out variable))
             {
                 _diagnostics.Report(expr.Name.Location, $"Variable '{name}' is not defined.");
                 return new BoundError();
             }
 
             BoundExpr value = BindExpr(expr.Value);
-            if (variable.Type != value.Type)
-            {
-                _diagnostics.Report(expr.Value.Location, $"Cannot assign value of type '{value.Type}' to variable '{name}' of type '{variable.Type}'.");
-                return new BoundError();
-            }
-
             if (!variable.Mutable)
             {
                 _diagnostics.Report(expr.Location, $"Cannot reassign to constant '{name}'.");
                 return new BoundError();
             }
 
+            if (variable.Type != value.Type)
+            {
+                _diagnostics.Report(expr.Value.Location, $"Cannot assign value of type '{value.Type}' to variable '{name}' of type '{variable.Type}'.");
+                return new BoundError();
+            }
+
             return new BoundAssignExpr(variable, value);
+        }
+
+        private BoundExpr BindGetExpr(GetExpr expr)
+        {
+            BoundExpr instance = BindExpr(expr.Instance);
+            if (!instance.Type.IsClass)
+            {
+                _diagnostics.Report(expr.Instance.Location, $"Class instance needed.");
+                return new BoundError();
+            }
+
+            string propName = expr.PropName.Lexeme;
+            ClassSymbol classSymbol = instance.Type.ClassSymbol!;
+            PropertySymbol? prop = classSymbol!.Properties.SingleOrDefault(p => p.Name == propName);
+            if (prop is null)
+            {
+                _diagnostics.Report(expr.PropName.Location, $"Class '{classSymbol.Name}' does not have property '{propName}'.");
+                return new BoundError();
+            }
+
+            if (_class != classSymbol && prop.Accessibility == Accessibility.Priv)
+                _diagnostics.Report(expr.Location, $"Cannot access private property '{propName}' of class '{classSymbol.Name}' in this context.");
+            return new BoundGetExpr(instance, prop);
+        }
+
+        private BoundExpr BindSetExpr(SetExpr expr)
+        {
+            BoundExpr instance = BindExpr(expr.Instance);
+            if (!instance.Type.IsClass)
+            {
+                _diagnostics.Report(expr.Instance.Location, $"Class instance needed.");
+                return new BoundError();
+            }
+
+            string propName = expr.PropName.Lexeme;
+            ClassSymbol classSymbol = instance.Type.ClassSymbol!;
+            PropertySymbol? prop = classSymbol!.Properties.SingleOrDefault(p => p.Name == propName);
+            if (prop is null)
+            {
+                _diagnostics.Report(expr.PropName.Location, $"Class '{classSymbol.Name}' does not have property '{propName}'.");
+                return new BoundError();
+            }
+
+            if (_class != classSymbol && prop.Accessibility == Accessibility.Priv)
+                _diagnostics.Report(expr.Location, $"Cannot access private property '{propName}' of class '{classSymbol.Name}' in this context.");
+
+            BoundExpr value = BindExpr(expr.Value);
+            if (!prop.Mutable)
+            {
+                _diagnostics.Report(expr.Location, $"Cannot reassign to constant property '{propName}'.");
+                return new BoundError();
+            }
+
+            if (prop.Type != value.Type)
+            {
+                _diagnostics.Report(expr.Value.Location, $"Cannot assign value of type '{value.Type}' to property '{propName}' of type '{prop.Type}'.");
+                return new BoundError();
+            }
+
+            return new BoundSetExpr(instance, prop, value);
         }
 
         private BoundExpr BindCallExpr(CallExpr expr)
@@ -541,24 +621,64 @@ namespace Delta.Binding
             }
             else
             {
-                if (!_scope.TryLookupFn(name, out FnSymbol? fn))
+                MethodSymbol? method = null;
+                FnSymbol? fn = null;
+                if (_class is not null && _class.Methods.Any(m => m.Name == name))
+                    method = _class.Methods.Single(m => m.Name == name);
+
+                if (method is null && !_scope.TryLookupFn(name, out fn))
                 {
-                    _diagnostics.Report(expr.Name.Location, $"Function '{name}' is not defined.");
+                    _diagnostics.Report(expr.Name.Location, $"Function {(_class is not null ? "or method" : "")} '{name}' is not defined.");
                     return new BoundError();
                 }
 
                 ImmutableArray<BoundExpr> args = [.. expr.Args.Select(a => BindExpr(a.Expr))];
-                if (args.Length != fn.Parameters.Length)
+                if (args.Length != (method?.Parameters ?? fn!.Parameters).Length)
                 {
-                    _diagnostics.Report(expr.Location, $"Expected '{fn.Parameters.Length}' arguments, but got {args.Length}.");
+                    _diagnostics.Report(expr.Location, $"Expected '{(method?.Parameters ?? fn!.Parameters).Length}' arguments, but got {args.Length}.");
                     return new BoundError();
                 }
 
                 for (int i = 0; i < args.Length; i++)
-                    if (args[i].Type != fn.Parameters[i].Type)
-                        _diagnostics.Report(expr.Args[i].Location, $"Argument '{fn.Parameters[i].Name}' of function '{name}' must be of type '{fn.Parameters[i].Type}', but got '{args[i].Type}'.");
-                return new BoundCallExpr(fn, args);
+                {
+                    ParamSymbol p = (method?.Parameters ?? fn!.Parameters)[i];
+                    if (args[i].Type != p.Type)
+                        _diagnostics.Report(expr.Args[i].Location, $"Argument '{p.Name}' of {(method is not null ? "method" : "function")} '{name}' must be of type '{p.Type}', but got '{args[i].Type}'.");
+                }
+
+                return new BoundCallExpr(method ?? fn!, args);
             }
+        }
+
+        private BoundExpr BindMethodExpr(MethodExpr expr)
+        {
+            BoundExpr instance = BindExpr(expr.Instance);
+            if (!instance.Type.IsClass)
+            {
+                _diagnostics.Report(expr.Instance.Location, $"Class instance needed.");
+                return new BoundError();
+            }
+
+            string methodName = expr.PropName.Lexeme;
+            ClassSymbol classSymbol = instance.Type.ClassSymbol!;
+            MethodSymbol? method = classSymbol!.Methods.SingleOrDefault(m => m.Name == methodName);
+            if (method is null)
+            {
+                _diagnostics.Report(expr.PropName.Location, $"Class '{classSymbol.Name}' does not have method '{methodName}'.");
+                return new BoundError();
+            }
+
+            ImmutableArray<BoundExpr> args = [.. expr.Args.Select(a => BindExpr(a.Expr))];
+            if (args.Length != method.Parameters.Length)
+            {
+                _diagnostics.Report(expr.Location, $"Expected '{method.Parameters.Length}' arguments, but got {args.Length}.");
+                return new BoundError();
+            }
+
+            for (int i = 0; i < args.Length; i++)
+                if (args[i].Type != method.Parameters[i].Type)
+                    _diagnostics.Report(expr.Args[i].Location, $"Argument '{method.Parameters[i].Name}' of method '{methodName}' must be of type '{method.Parameters[i].Type}', but got '{args[i].Type}'.");
+            return new BoundMethodExpr(instance, method, args);
         }
 
         private TypeSymbol BindTypeClause(TypeClause typeClause, bool canBeVoid = false)

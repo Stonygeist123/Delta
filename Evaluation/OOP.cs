@@ -12,9 +12,9 @@ namespace Delta.Evaluation
         public ImmutableDictionary<MethodSymbol, BoundBlockStmt> Methods { get; } = methods;
     }
 
-    internal sealed class ClassInstance(ClassData data, ImmutableDictionary<PropertySymbol, object?> properties)
+    internal sealed class ClassInstance(ClassData data, Dictionary<PropertySymbol, object?> properties)
     {
         public ClassData Data { get; } = data;
-        public ImmutableDictionary<PropertySymbol, object?> Properties { get; } = properties;
+        public Dictionary<PropertySymbol, object?> Properties { get; } = properties;
     }
 }

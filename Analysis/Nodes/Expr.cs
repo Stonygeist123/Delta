@@ -48,10 +48,39 @@
         public Expr Value { get; } = value;
     }
 
+    internal class GetExpr(SyntaxTree syntaxTree, Expr instance, Token dot, Token propName) : Expr(syntaxTree)
+    {
+        public override NodeKind Kind => NodeKind.GetExpr;
+        public Expr Instance { get; } = instance;
+        public Token Dot { get; } = dot;
+        public Token PropName { get; } = propName;
+    }
+
+    internal class SetExpr(SyntaxTree syntaxTree, Expr instance, Token dot, Token propName, Token eqToken, Expr value) : Expr(syntaxTree)
+    {
+        public override NodeKind Kind => NodeKind.SetExpr;
+        public Expr Instance { get; } = instance;
+        public Token Dot { get; } = dot;
+        public Token PropName { get; } = propName;
+        public Token EqToken { get; } = eqToken;
+        public Expr Value { get; } = value;
+    }
+
     internal class CallExpr(SyntaxTree syntaxTree, Token name, Token lParen, List<Arg> args, Token rParen) : Expr(syntaxTree)
     {
         public override NodeKind Kind => NodeKind.CallExpr;
         public Token Name { get; } = name;
+        public Token LParen { get; } = lParen;
+        public List<Arg> Args { get; } = args;
+        public Token RParen { get; } = rParen;
+    }
+
+    internal class MethodExpr(SyntaxTree syntaxTree, Expr instance, Token dot, Token propName, Token lParen, List<Arg> args, Token rParen) : Expr(syntaxTree)
+    {
+        public override NodeKind Kind => NodeKind.CallExpr;
+        public Expr Instance { get; } = instance;
+        public Token Dot { get; } = dot;
+        public Token PropName { get; } = propName;
         public Token LParen { get; } = lParen;
         public List<Arg> Args { get; } = args;
         public Token RParen { get; } = rParen;

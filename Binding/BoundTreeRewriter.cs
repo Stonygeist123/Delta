@@ -26,8 +26,11 @@ namespace Delta.Binding
             BoundUnaryExpr => RewriteUnaryExpr((BoundUnaryExpr)node),
             BoundBinaryExpr => RewriteBinaryExpr((BoundBinaryExpr)node),
             BoundNameExpr => RewriteNameExpr((BoundNameExpr)node),
-            BoundAssignExpr => RewriteAssignmentExpr((BoundAssignExpr)node),
+            BoundAssignExpr => RewriteAssignExpr((BoundAssignExpr)node),
+            BoundGetExpr => RewriteGetExpr((BoundGetExpr)node),
+            BoundSetExpr => RewriteSetExpr((BoundSetExpr)node),
             BoundCallExpr => RewriteCallExpr((BoundCallExpr)node),
+            BoundMethodExpr => RewriteMethodExpr((BoundMethodExpr)node),
             BoundInstanceExpr => RewriteInstanceExpr((BoundInstanceExpr)node),
             BoundError => RewriteErrorExpr((BoundError)node),
             _ => throw new Exception($"Unexpected node to lower: \"{node.GetType().Name}\"."),
@@ -154,13 +157,29 @@ namespace Delta.Binding
 
         protected virtual BoundExpr RewriteNameExpr(BoundNameExpr node) => node;
 
-        protected virtual BoundExpr RewriteAssignmentExpr(BoundAssignExpr node)
+        protected virtual BoundExpr RewriteAssignExpr(BoundAssignExpr node)
         {
             BoundExpr value = RewriteExpr(node.Value);
             if (value == node.Value)
                 return node;
-
             return new BoundAssignExpr(node.Variable, value);
+        }
+
+        protected virtual BoundExpr RewriteGetExpr(BoundGetExpr node)
+        {
+            BoundExpr instance = RewriteExpr(node.Instance);
+            if (instance == node.Instance)
+                return node;
+            return new BoundGetExpr(instance, node.Property);
+        }
+
+        protected virtual BoundExpr RewriteSetExpr(BoundSetExpr node)
+        {
+            BoundExpr value = RewriteExpr(node.Value);
+            BoundExpr instance = RewriteExpr(node.Instance);
+            if (value == node.Value && instance == node.Instance)
+                return node;
+            return new BoundSetExpr(instance, node.Property, value);
         }
 
         protected virtual BoundExpr RewriteCallExpr(BoundCallExpr node)
@@ -186,8 +205,34 @@ namespace Delta.Binding
 
             if (builder is null)
                 return node;
-
             return new BoundCallExpr(node.Fn, builder.MoveToImmutable());
+        }
+
+        protected virtual BoundExpr RewriteMethodExpr(BoundMethodExpr node)
+        {
+            BoundExpr instance = RewriteExpr(node.Instance);
+            ImmutableArray<BoundExpr>.Builder? builder = null;
+            for (int i = 0; i < node.Args.Length; ++i)
+            {
+                BoundExpr stmt = node.Args[i];
+                BoundExpr oldExpr = stmt;
+                BoundExpr newExpr = RewriteExpr(oldExpr);
+                if (newExpr != oldExpr)
+                {
+                    if (builder is null)
+                    {
+                        builder = ImmutableArray.CreateBuilder<BoundExpr>(node.Args.Length);
+                        for (int j = 0; j < i; ++j)
+                            builder.Add(node.Args[j]);
+                    }
+                }
+
+                builder?.Add(newExpr);
+            }
+
+            if (builder is null && instance == node.Instance)
+                return node;
+            return new BoundMethodExpr(instance, node.Method, builder?.MoveToImmutable() ?? node.Args);
         }
 
         protected virtual BoundExpr RewriteInstanceExpr(BoundInstanceExpr node)

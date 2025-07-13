@@ -16,7 +16,7 @@ namespace Delta.Analysis.Nodes
         Var, Mut, True, False, If, Else, Loop, For, Fn, Class, Ret, Break, Continue, Step, Pub, Priv,
 
         // Others
-        LParen, RParen, LBrace, RBrace, Comma, Eq, Colon, Arrow, Semicolon,
+        LParen, RParen, LBrace, RBrace, Comma, Eq, Colon, Arrow, Semicolon, Dot,
 
         Space, Bad, EOF,
 
@@ -24,7 +24,7 @@ namespace Delta.Analysis.Nodes
         ParameterList, Param, Arg, TypeClause, CompilationUnit,
 
         // Exprs
-        LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, NameExpr, AssignExpr, CallExpr, ErrorExpr,
+        LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, NameExpr, AssignExpr, GetExpr, SetExpr, CallExpr, ErrorExpr,
 
         // Stmts
         ExprStmt, VarStmt, BlockStmt, IfStmt, ElseStmt, LoopStmt, ForStmt, RetStmt, BreakStmt, ContinueStmt, ErrorStmt,

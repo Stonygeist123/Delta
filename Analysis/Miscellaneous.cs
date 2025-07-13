@@ -54,6 +54,7 @@ namespace Delta.Analysis
             NodeKind.Colon => ":",
             NodeKind.Arrow => "->",
             NodeKind.Semicolon => ";",
+            NodeKind.Dot => ".",
             NodeKind.True => "true",
             NodeKind.False => "false",
             NodeKind.Var => "var",

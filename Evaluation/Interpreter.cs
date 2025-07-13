@@ -2,7 +2,6 @@
 using Delta.Binding;
 using Delta.Binding.BoundNodes;
 using Delta.Symbols;
-using System.Collections.Immutable;
 
 namespace Delta.Evaluation
 {
@@ -153,6 +152,8 @@ namespace Delta.Evaluation
                 {
                     VarSymbol symbol = ((BoundNameExpr)expr).Variable;
                     string name = symbol.Name;
+                    if (symbol is PropertySymbol p)
+                        return _instance!.Properties[p];
                     return (symbol is GlobalVarSymbol ? _globals : _locals.Peek()).Single(v => v.Key.Name == name).Value;
                 }
 
@@ -160,10 +161,31 @@ namespace Delta.Evaluation
                 {
                     VarSymbol symbol = ((BoundAssignExpr)expr).Variable;
                     string name = symbol.Name;
-                    object assignValue = ExecuteExpr(((BoundAssignExpr)expr).Value) ?? throw new Exception($"Value to assign to '{name}' has no value.");
+                    object value = ExecuteExpr(((BoundAssignExpr)expr).Value) ?? throw new Exception($"Value to assign to variable '{name}' has no value.");
+                    if (symbol is PropertySymbol p)
+                        return _instance!.Properties[p] = value;
                     return (symbol is GlobalVarSymbol
                             ? _globals
-                            : _locals.Peek())[symbol] = assignValue;
+                            : _locals.Peek())[symbol] = value;
+                }
+
+                case BoundGetExpr:
+                {
+                    BoundExpr instanceExpr = ((BoundGetExpr)expr).Instance;
+                    ClassSymbol classSymbol = ((BoundGetExpr)expr).ClassSymbol;
+                    PropertySymbol property = ((BoundGetExpr)expr).Property;
+                    ClassInstance instance = (ClassInstance)ExecuteExpr(instanceExpr)!;
+                    return instance.Properties[property];
+                }
+
+                case BoundSetExpr:
+                {
+                    BoundExpr instanceExpr = ((BoundSetExpr)expr).Instance;
+                    ClassSymbol classSymbol = ((BoundSetExpr)expr).ClassSymbol;
+                    PropertySymbol property = ((BoundSetExpr)expr).Property;
+                    ClassInstance instance = (ClassInstance)ExecuteExpr(instanceExpr)!;
+                    object value = ExecuteExpr(((BoundSetExpr)expr).Value) ?? throw new Exception($"Value to assign to property '{property.Name}' has no value.");
+                    return instance.Properties[property] = value;
                 }
 
                 case BoundCallExpr:
@@ -185,6 +207,18 @@ namespace Delta.Evaluation
                                 throw new Exception($"Unsupported built-in function '{fnSymbol.Name}'.");
                         }
                     }
+                    else if (fnSymbol is MethodSymbol m)
+                    {
+                        Dictionary<VarSymbol, object?> locals = [];
+                        for (int i = 0; i < args.Count; i++)
+                        {
+                            ParamSymbol parameter = fnSymbol.Parameters[i];
+                            locals.Add(parameter, args[i]);
+                        }
+
+                        _locals.Push(locals);
+                        result = ExecuteStmt(_instance!.Data.Methods[m]);
+                    }
                     else
                     {
                         Dictionary<VarSymbol, object?> locals = [];
@@ -198,6 +232,26 @@ namespace Delta.Evaluation
                         result = ExecuteStmt(_fns[fnSymbol]);
                     }
 
+                    return result;
+                }
+
+                case BoundMethodExpr:
+                {
+                    ClassInstance instance = (ClassInstance)ExecuteExpr(((BoundMethodExpr)expr).Instance)!;
+                    MethodSymbol methodSymbol = ((BoundMethodExpr)expr).Method;
+                    object? result = null;
+                    List<object?> args = [.. ((BoundMethodExpr)expr).Args.Select(ExecuteExpr)];
+                    Dictionary<VarSymbol, object?> locals = [];
+                    for (int i = 0; i < args.Count; i++)
+                    {
+                        ParamSymbol parameter = methodSymbol.Parameters[i];
+                        locals.Add(parameter, args[i]);
+                    }
+
+                    _locals.Push(locals);
+                    _instance = instance;
+                    result = ExecuteStmt(instance.Data.Methods[methodSymbol]);
+                    _instance = null;
                     return result;
                 }
 
@@ -218,7 +272,7 @@ namespace Delta.Evaluation
                         _locals.Push(locals);
                     }
 
-                    ClassInstance instance = new(data, data.Properties.Select(p => new KeyValuePair<PropertySymbol, object?>(p, ExecuteExpr(p.Value))).ToImmutableDictionary());
+                    ClassInstance instance = new(data, data.Properties.Select(p => new KeyValuePair<PropertySymbol, object?>(p, ExecuteExpr(p.Value))).ToDictionary());
                     _instance = instance;
                     if (data.Ctor is not null)
                         ExecuteStmt(data.Ctor);

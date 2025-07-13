@@ -207,6 +207,13 @@ namespace Delta.IO
                         HandleCtrlEnter();
                         break;
                 }
+            else if (key.Modifiers == ConsoleModifiers.Shift)
+                switch (key.Key)
+                {
+                    case ConsoleKey.Enter:
+                        HandleShiftEnter(document, view);
+                        break;
+                }
 
             if (key.Key != ConsoleKey.Backspace && key.KeyChar >= ' ')
                 HandleTyping(document, view, key.KeyChar.ToString());
@@ -233,6 +240,8 @@ namespace Delta.IO
         }
 
         private void HandleCtrlEnter() => _done = true;
+
+        private static void HandleShiftEnter(ObservableCollection<string> document, SubmissionView view) => InsertLine(document, view);
 
         private static void InsertLine(ObservableCollection<string> document, SubmissionView view)
         {

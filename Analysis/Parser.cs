@@ -56,12 +56,8 @@ namespace Delta.Analysis
             return members.ToImmutable();
         }
 
-        private MemberNode ParseFnDecl(bool inClass = false)
+        private MemberNode ParseFnDecl(bool inClass = false, Token? accessibility = null)
         {
-            Token? accessibility = inClass ? (Current.Kind == NodeKind.Pub || Current.Kind == NodeKind.Priv ? Advance() : null) : null;
-            if (accessibility?.Kind == NodeKind.Priv)
-                _diagnostics.Report(accessibility.Location, $"The constructor cannot be private.");
-
             Token keyword = Advance();
             Token? name = Current;
             if (inClass)
@@ -143,14 +139,20 @@ namespace Delta.Analysis
             while (Current.Kind != NodeKind.RBrace && !IsAtEnd())
             {
                 Token? accessibility = Current;
-                if (accessibility.Kind != NodeKind.Pub && accessibility.Kind != NodeKind.Priv)
-                    accessibility = null;
-                else
+                if (accessibility.Kind == NodeKind.Pub || accessibility.Kind == NodeKind.Priv)
                     ++_current;
+                else
+                    accessibility = null;
+
+                Token? mutToken = Current;
+                if (mutToken.Kind == NodeKind.Mut)
+                    ++_current;
+                else
+                    mutToken = null;
 
                 if (Current.Kind == NodeKind.Fn)
                 {
-                    MemberNode member = ParseFnDecl(true);
+                    MemberNode member = ParseFnDecl(true, accessibility);
                     if (member is MethodDecl method)
                         methods.Add(method);
                     else if (member is CtorDecl)
@@ -158,10 +160,6 @@ namespace Delta.Analysis
                 }
                 else if (Current.Kind == NodeKind.Identifier)
                 {
-                    Token? mutToken = null;
-                    if (Current.Kind == NodeKind.Mut)
-                        mutToken = Advance();
-
                     Token varName = Current;
                     if (!Match(NodeKind.Identifier))
                         return new ErrorStmt(_syntaxTree, keyword, name);
@@ -399,7 +397,7 @@ namespace Delta.Analysis
                     }
                 }
             }
-            else if (expr is NameExpr n && token.Kind == NodeKind.LParen)
+            else if ((expr is NameExpr || expr is GetExpr) && token.Kind == NodeKind.LParen)
             {
                 ++_current;
                 List<Arg> args = [];
@@ -419,13 +417,30 @@ namespace Delta.Analysis
                 if (IsAtEnd())
                 {
                     _diagnostics.Report(Current.Location, "Expected ')'.");
-                    return new ErrorExpr(_syntaxTree, [n, token, .. args]);
+                    return new ErrorExpr(_syntaxTree, [expr, token, .. args]);
                 }
 
                 Token rParen = Current;
                 if (!Match(NodeKind.RParen))
-                    return new ErrorExpr(_syntaxTree, n, rParen);
-                expr = new CallExpr(_syntaxTree, n.Name, token, args, rParen);
+                    return new ErrorExpr(_syntaxTree, expr, rParen);
+                expr = expr is GetExpr g
+                    ? new MethodExpr(_syntaxTree, g.Instance, g.Dot, g.PropName, token, args, rParen)
+                    : new CallExpr(_syntaxTree, ((NameExpr)expr).Name, token, args, rParen);
+            }
+            else if (Current.Kind == NodeKind.Dot)
+            {
+                ++_current;
+                Token propName = Current;
+                if (!Match(NodeKind.Identifier))
+                    expr = new ErrorExpr(_syntaxTree, expr, token, propName);
+                else if (Current.Kind == NodeKind.Eq)
+                {
+                    Token eqToken = Advance();
+                    Expr value = ParseExpr();
+                    expr = CheckExtension(new SetExpr(_syntaxTree, expr, token, propName, eqToken, value));
+                }
+                else
+                    expr = CheckExtension(new GetExpr(_syntaxTree, expr, token, propName));
             }
 
             return expr;

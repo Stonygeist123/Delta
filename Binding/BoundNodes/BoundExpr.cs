@@ -45,7 +45,24 @@ namespace Delta.Binding.BoundNodes
     {
         public VarSymbol Variable { get; } = variable;
         public BoundExpr Value { get; } = value;
-        public override TypeSymbol Type => Variable.Type;
+        public override TypeSymbol Type => Value.Type;
+    }
+
+    internal sealed class BoundGetExpr(BoundExpr instance, PropertySymbol property) : BoundExpr
+    {
+        public BoundExpr Instance { get; } = instance;
+        public ClassSymbol ClassSymbol => Instance.Type.ClassSymbol!;
+        public PropertySymbol Property { get; } = property;
+        public override TypeSymbol Type => Property.Type;
+    }
+
+    internal sealed class BoundSetExpr(BoundExpr instance, PropertySymbol property, BoundExpr value) : BoundExpr
+    {
+        public BoundExpr Instance { get; } = instance;
+        public ClassSymbol ClassSymbol => Instance.Type.ClassSymbol!;
+        public PropertySymbol Property { get; } = property;
+        public BoundExpr Value { get; } = value;
+        public override TypeSymbol Type => Value.Type;
     }
 
     internal sealed class BoundCallExpr(FnSymbol fn, ImmutableArray<BoundExpr> Args) : BoundExpr
@@ -55,11 +72,19 @@ namespace Delta.Binding.BoundNodes
         public override TypeSymbol Type => Fn.ReturnType;
     }
 
+    internal sealed class BoundMethodExpr(BoundExpr instance, MethodSymbol method, ImmutableArray<BoundExpr> Args) : BoundExpr
+    {
+        public BoundExpr Instance { get; } = instance;
+        public MethodSymbol Method { get; } = method;
+        public ImmutableArray<BoundExpr> Args { get; } = Args;
+        public override TypeSymbol Type => Method.ReturnType;
+    }
+
     internal sealed class BoundInstanceExpr(ClassSymbol classSymbol, ImmutableArray<BoundExpr> Args) : BoundExpr
     {
         public ClassSymbol ClassSymbol { get; } = classSymbol;
         public ImmutableArray<BoundExpr> Args { get; } = Args;
-        public override TypeSymbol Type => new(ClassSymbol.Name);
+        public override TypeSymbol Type => new(ClassSymbol.Name, ClassSymbol);
     }
 
     internal sealed class BoundError() : BoundExpr

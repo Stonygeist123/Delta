@@ -151,6 +151,10 @@ namespace Delta.Analysis
                     AddToken(NodeKind.Semicolon);
                     break;
 
+                case '.':
+                    AddToken(NodeKind.Dot);
+                    break;
+
                 case ' ':
                 case '\t':
                 case '\r':
