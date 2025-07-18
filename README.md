@@ -1,19 +1,19 @@
 
 # Delta Programming Language
 
-Delta is a **high-level**, statically typed programming language designed to be simple yet powerful. It combines **object-oriented** and **procedural** programming paradigms with easy-to-read syntax, making it ideal for intermediate developers who want to focus on logic rather than language quirks.
+Delta is a **high-level**, statically typed programming language designed to be simple yet powerful. It combines **object-oriented** and **procedural** programming paradigms with easy-to-read syntax, making it ideal for developers who want to focus on logic rather than language quirks.
 
 ---
 
-## ✨ Features
+## Features
 
 - Clean, beginner-friendly syntax
 - Statically typed for safety and clarity
 - Supports both **object-oriented** and **procedural** programming styles
-- REPL-based execution (for now)
+- REPL-based and file-based execution
 - Designed with future support for compiled execution
 
-> ⚠️ Note: Delta is still in development. The standard library and file-based execution are planned for future releases.
+> ⚠️ Note: Delta is still in development. The standard library is planned for future releases.
 
 ---
 
@@ -316,13 +316,15 @@ class Point {
 
 ### 1. Running Delta
 
-Currently, Delta can be executed in REPL mode:
+Using REPL:
 
-1. Open the project in Visual Studio.
-2. Start the application.
-3. Enter your Delta code directly into the REPL prompt.
+1. Execute the .exe.
+2. Type in your code.
+-> Multi-line is achieved by pressing shift-enter or by pressing enter on a syntax error.
 
-*File execution is coming soon!*
+Executing files:
+
+Usage: delta [filename]
 
 ---
 
@@ -336,7 +338,7 @@ print("Hello, World!")
 
 ## 📁 File Extensions
 
-Delta currently does not use a specific file extension, but support for file-based scripts is planned.
+Delta currently does not use a specific file extension, but an extension for Visual Studio Code will be added for a ".detla" extension.
 
 ---
 
