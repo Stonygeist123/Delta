@@ -126,7 +126,7 @@ namespace Delta.Binding
         private static BoundScope GetRootScope()
         {
             BoundScope res = new(null);
-            foreach (FnSymbol fn in BuiltIn.Fns)
+            foreach (FnSymbol fn in BuiltIn.Fns.Select(f => f.Key))
                 res.TryDeclareFn(fn);
             return res;
         }
@@ -509,17 +509,20 @@ namespace Delta.Binding
         {
             string name = expr.Name.Lexeme;
             VarSymbol? variable = _class?.Properties.SingleOrDefault(p => p.Name == name);
-            if (variable is not null || _scope.TryLookupVar(name, out variable))
-                return new BoundNameExpr(variable);
-            _diagnostics.Report(expr.Name.Location, $"Variable '{name}' is not defined.");
-            return new BoundError();
+            if (variable is null && !_scope.TryLookupVar(name, out variable))
+            {
+                _diagnostics.Report(expr.Name.Location, $"Variable '{name}' is not defined.");
+                return new BoundError();
+            }
+
+            return new BoundNameExpr(variable);
         }
 
         private BoundExpr BindAssignExpr(AssignExpr expr)
         {
             string name = expr.Name.Lexeme;
             VarSymbol? variable = _class?.Properties.SingleOrDefault(p => p.Name == name);
-            if (variable is not null || _scope.TryLookupVar(name, out variable))
+            if (variable is null && !_scope.TryLookupVar(name, out variable))
             {
                 _diagnostics.Report(expr.Name.Location, $"Variable '{name}' is not defined.");
                 return new BoundError();
@@ -628,7 +631,7 @@ namespace Delta.Binding
 
                 if (method is null && !_scope.TryLookupFn(name, out fn))
                 {
-                    _diagnostics.Report(expr.Name.Location, $"Function {(_class is not null ? "or method" : "")} '{name}' is not defined.");
+                    _diagnostics.Report(expr.Name.Location, $"Function{(_class is not null ? " or method" : "")} '{name}' is not defined.");
                     return new BoundError();
                 }
 

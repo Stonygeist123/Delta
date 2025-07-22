@@ -190,29 +190,17 @@ namespace Delta.Evaluation
 
                 case BoundCallExpr:
                 {
-                    FnSymbol fnSymbol = ((BoundCallExpr)expr).Fn;
+                    FnSymbol fn = ((BoundCallExpr)expr).Fn;
                     object? result = null;
                     List<object?> args = [.. ((BoundCallExpr)expr).Args.Select(ExecuteExpr)];
-                    if (fnSymbol is BuiltInFn)
-                    {
-                        switch (fnSymbol.Name)
-                        {
-                            case "print":
-                            {
-                                Console.WriteLine(args[0]);
-                                result = null;
-                                break;
-                            }
-                            default:
-                                throw new Exception($"Unsupported built-in function '{fnSymbol.Name}'.");
-                        }
-                    }
-                    else if (fnSymbol is MethodSymbol m)
+                    if (fn is BuiltInFn)
+                        result = BuiltIn.Fns.Single(f => f.Key == fn).Value(args);
+                    else if (fn is MethodSymbol m)
                     {
                         Dictionary<VarSymbol, object?> locals = [];
                         for (int i = 0; i < args.Count; i++)
                         {
-                            ParamSymbol parameter = fnSymbol.Parameters[i];
+                            ParamSymbol parameter = fn.Parameters[i];
                             locals.Add(parameter, args[i]);
                         }
 
@@ -224,12 +212,12 @@ namespace Delta.Evaluation
                         Dictionary<VarSymbol, object?> locals = [];
                         for (int i = 0; i < args.Count; i++)
                         {
-                            ParamSymbol parameter = fnSymbol.Parameters[i];
+                            ParamSymbol parameter = fn.Parameters[i];
                             locals.Add(parameter, args[i]);
                         }
 
                         _locals.Push(locals);
-                        result = ExecuteStmt(_fns[fnSymbol]);
+                        result = ExecuteStmt(_fns[fn]);
                     }
 
                     return result;

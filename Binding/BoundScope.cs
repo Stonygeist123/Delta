@@ -44,7 +44,7 @@ namespace Delta.Binding
 
         public bool TryLookupFn(string name, [MaybeNullWhen(false)] out FnSymbol symbol)
         {
-            FnSymbol? builtInFn = BuiltIn.Fns.Find(f => f.Name == name);
+            FnSymbol? builtInFn = BuiltIn.Fns.SingleOrDefault(f => f.Key.Name == name).Key;
             if (builtInFn != null)
             {
                 symbol = builtInFn;
