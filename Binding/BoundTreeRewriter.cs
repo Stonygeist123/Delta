@@ -27,10 +27,13 @@ namespace Delta.Binding
             BoundBinaryExpr => RewriteBinaryExpr((BoundBinaryExpr)node),
             BoundNameExpr => RewriteNameExpr((BoundNameExpr)node),
             BoundAssignExpr => RewriteAssignExpr((BoundAssignExpr)node),
+            BoundCallExpr => RewriteCallExpr((BoundCallExpr)node),
             BoundGetExpr => RewriteGetExpr((BoundGetExpr)node),
             BoundSetExpr => RewriteSetExpr((BoundSetExpr)node),
-            BoundCallExpr => RewriteCallExpr((BoundCallExpr)node),
             BoundMethodExpr => RewriteMethodExpr((BoundMethodExpr)node),
+            BoundStaticGetExpr => RewriteStaticGetExpr((BoundStaticGetExpr)node),
+            BoundStaticSetExpr => RewriteStaticSetExpr((BoundStaticSetExpr)node),
+            BoundStaticMethodExpr => RewriteStaticMethodExpr((BoundStaticMethodExpr)node),
             BoundInstanceExpr => RewriteInstanceExpr((BoundInstanceExpr)node),
             BoundError => RewriteErrorExpr((BoundError)node),
             _ => throw new Exception($"Unexpected node to lower: \"{node.GetType().Name}\"."),
@@ -165,23 +168,6 @@ namespace Delta.Binding
             return new BoundAssignExpr(node.Variable, value);
         }
 
-        protected virtual BoundExpr RewriteGetExpr(BoundGetExpr node)
-        {
-            BoundExpr instance = RewriteExpr(node.Instance);
-            if (instance == node.Instance)
-                return node;
-            return new BoundGetExpr(instance, node.Property);
-        }
-
-        protected virtual BoundExpr RewriteSetExpr(BoundSetExpr node)
-        {
-            BoundExpr value = RewriteExpr(node.Value);
-            BoundExpr instance = RewriteExpr(node.Instance);
-            if (value == node.Value && instance == node.Instance)
-                return node;
-            return new BoundSetExpr(instance, node.Property, value);
-        }
-
         protected virtual BoundExpr RewriteCallExpr(BoundCallExpr node)
         {
             ImmutableArray<BoundExpr>.Builder? builder = null;
@@ -206,6 +192,23 @@ namespace Delta.Binding
             if (builder is null)
                 return node;
             return new BoundCallExpr(node.Fn, builder.MoveToImmutable());
+        }
+
+        protected virtual BoundExpr RewriteGetExpr(BoundGetExpr node)
+        {
+            BoundExpr instance = RewriteExpr(node.Instance);
+            if (instance == node.Instance)
+                return node;
+            return new BoundGetExpr(instance, node.Property);
+        }
+
+        protected virtual BoundExpr RewriteSetExpr(BoundSetExpr node)
+        {
+            BoundExpr value = RewriteExpr(node.Value);
+            BoundExpr instance = RewriteExpr(node.Instance);
+            if (value == node.Value && instance == node.Instance)
+                return node;
+            return new BoundSetExpr(instance, node.Property, value);
         }
 
         protected virtual BoundExpr RewriteMethodExpr(BoundMethodExpr node)
@@ -235,6 +238,38 @@ namespace Delta.Binding
             return new BoundMethodExpr(instance, node.Method, builder?.MoveToImmutable() ?? node.Args);
         }
 
+        protected virtual BoundExpr RewriteStaticGetExpr(BoundStaticGetExpr node) => node;
+
+        protected virtual BoundExpr RewriteStaticSetExpr(BoundStaticSetExpr node)
+        {
+            BoundExpr value = RewriteExpr(node.Value);
+            return value == node.Value ? node : new BoundStaticSetExpr(node.ClassSymbol, node.Property, value);
+        }
+
+        protected virtual BoundExpr RewriteStaticMethodExpr(BoundStaticMethodExpr node)
+        {
+            ImmutableArray<BoundExpr>.Builder? builder = null;
+            for (int i = 0; i < node.Args.Length; ++i)
+            {
+                BoundExpr stmt = node.Args[i];
+                BoundExpr oldExpr = stmt;
+                BoundExpr newExpr = RewriteExpr(oldExpr);
+                if (newExpr != oldExpr)
+                {
+                    if (builder is null)
+                    {
+                        builder = ImmutableArray.CreateBuilder<BoundExpr>(node.Args.Length);
+                        for (int j = 0; j < i; ++j)
+                            builder.Add(node.Args[j]);
+                    }
+                }
+
+                builder?.Add(newExpr);
+            }
+
+            return builder is null ? node : new BoundStaticMethodExpr(node.ClassSymbol, node.Method, builder?.MoveToImmutable() ?? node.Args);
+        }
+
         protected virtual BoundExpr RewriteInstanceExpr(BoundInstanceExpr node)
         {
             ImmutableArray<BoundExpr>.Builder? builder = null;
@@ -256,10 +291,7 @@ namespace Delta.Binding
                 builder?.Add(newExpr);
             }
 
-            if (builder is null)
-                return node;
-
-            return new BoundInstanceExpr(node.ClassSymbol, builder.MoveToImmutable());
+            return builder is null ? node : new BoundInstanceExpr(node.ClassSymbol, builder.MoveToImmutable());
         }
 
         protected virtual BoundError RewriteErrorExpr(BoundError expr) => expr;

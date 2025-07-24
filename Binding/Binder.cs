@@ -3,7 +3,7 @@ using Delta.Analysis.Nodes;
 using Delta.Binding.BoundNodes;
 using Delta.Diagnostics;
 using Delta.Evaluation;
-using Delta.Lowerering;
+using Delta.Lowering;
 using Delta.Symbols;
 using System.Collections.Immutable;
 using System.Data;
@@ -32,7 +32,7 @@ namespace Delta.Binding
                 Binder binder = new(parentScope, fn);
                 BoundBlockStmt body = Lowerer.Lower(binder.BindStmt(fn.Decl!.Body));
                 if (fn.ReturnType != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(body))
-                    binder._diagnostics.Report(fn.Decl.Location, $"All code paths must return a value.");
+                    binder._diagnostics.Report(fn.Decl.Name.Location, $"All code paths must return a value.");
 
                 fnBodies.Add(fn, body);
                 diagnostics.AddRange(binder.Diagnostics);
@@ -46,15 +46,7 @@ namespace Delta.Binding
                         binder._scope.TryDeclareVar(p);
                 BoundBlockStmt? ctor = classSymbol.Ctor?.Decl is null ? null : Lowerer.Lower(binder.BindStmt(classSymbol.Ctor.Decl.Body));
                 diagnostics.AddRange(binder.Diagnostics);
-                ClassData data = new(classSymbol.Name, ctor, classSymbol.Properties, classSymbol.Methods.Select(m =>
-                {
-                    Binder binder = new(parentScope, null, classSymbol);
-                    foreach (ParamSymbol p in m.Parameters)
-                        binder._scope.TryDeclareVar(p);
-                    KeyValuePair<MethodSymbol, BoundBlockStmt> kv = new(m, Lowerer.Lower(binder.BindStmt(m.Decl!.Body)));
-                    diagnostics.AddRange(binder.Diagnostics);
-                    return kv;
-                }).ToImmutableDictionary());
+                ClassData data = new(classSymbol.Name, ctor, classSymbol.Properties, classSymbol.MethodsWithBody!);
                 classes.Add(classSymbol, data);
             }
 
@@ -200,21 +192,24 @@ namespace Delta.Binding
                 }
             }
 
-            CtorSymbol? ctor = decl.Ctor is null ? null : new(decl.Ctor.Accessibility?.Kind == NodeKind.Priv ? Accessibility.Priv : Accessibility.Pub, name, ctorParametersBuilder.ToImmutable(), decl.Ctor);
-            if (ctor?.Accessibility == Accessibility.Priv)
-                _diagnostics.Report(ctor!.Decl!.Accessibility!.Location, $"The constructor cannot be private.");
-            ClassSymbol classSymbol = new(name, ctor, [.. decl.Properties.Select(p =>
+            AttributeNode? privAttr = decl.Ctor?.Attributes.FirstOrDefault(a => a.Kind == NodeKind.Priv);
+            CtorSymbol? ctor = decl.Ctor is null ? null : new(new(name, privAttr is not null ? Accessibility.Priv : Accessibility.Pub, true), name, ctorParametersBuilder.ToImmutable(), decl.Ctor);
+            if (privAttr is not null)
+                _diagnostics.Report(privAttr.Location, $"The constructor cannot be private.");
+            ImmutableArray<MethodSymbol> methods = [.. decl.Methods.Select(decl =>
+                         {
+                             Accessibility accessibility = decl.Attributes.Any(a => a.Token.Kind == NodeKind.Pub) ? Accessibility.Pub : Accessibility.Priv;
+                             TypeSymbol retType = BindTypeClause(decl.ReturnType, true);
+                             return new MethodSymbol(new(decl.Name.Lexeme, accessibility, decl.Attributes.Any(a =>  a.Token.Kind == NodeKind.Static)), decl.Name.Lexeme, retType, decl.Parameters is null ? [] : [.. decl.Parameters.ParamList.Select(p => new ParamSymbol(p.Name.Lexeme, BindTypeClause(p.TypeClause)))]);
+                         })];
+            ImmutableArray<PropertySymbol> props = [.. decl.Properties.Select(p =>
             {
-                Accessibility accessibility = p.Accessibility?.Kind == NodeKind.Pub ? Accessibility.Pub : Accessibility.Priv;
+                Accessibility accessibility = p.Attributes.Any(a => a.Token.Kind == NodeKind.Pub) ? Accessibility.Pub : Accessibility.Priv;
                 BoundExpr boundValue = BindExpr(p.Value);
-                return new PropertySymbol(accessibility, p.Name.Lexeme, p.TypeClause is null ? boundValue.Type : BindTypeClause(p.TypeClause), p.MutToken is not null, boundValue);
-            })], [.. decl.Methods.Select(m =>
-            {
-                Accessibility accessibility = m.Accessibility?.Kind == NodeKind.Pub ? Accessibility.Pub : Accessibility.Priv;
-                TypeSymbol retType = BindTypeClause(m.ReturnType, true);
-                return new MethodSymbol(accessibility, m.Name.Lexeme, retType, m.Parameters is null ? [] : [.. m.Parameters.ParamList.Select(p => new ParamSymbol(p.Name.Lexeme, BindTypeClause(p.TypeClause)))]);
-            })], decl);
+                return new PropertySymbol(new(p.Name.Lexeme, accessibility, p.Attributes.Any(a => a.Token.Kind == NodeKind.Static)), p.Name.Lexeme, p.TypeClause is null ? boundValue.Type : BindTypeClause(p.TypeClause), p.MutToken is not null, boundValue);
+            })];
 
+            ClassSymbol classSymbol = new(decl, name, ctor, props, methods.Select(m => new KeyValuePair<MethodSymbol, BoundBlockStmt>(m, new([]))).ToImmutableDictionary());
             Binder binder = new(_scope, null, classSymbol);
             if (decl.Ctor is not null)
             {
@@ -224,11 +219,11 @@ namespace Delta.Binding
                 _diagnostics.AddRange(binder.Diagnostics);
             }
 
-            ImmutableArray<PropertySymbol>.Builder properties = ImmutableArray.CreateBuilder<PropertySymbol>();
-            ImmutableArray<MethodSymbol>.Builder methods = ImmutableArray.CreateBuilder<MethodSymbol>();
+            ImmutableArray<PropertySymbol>.Builder propertiesBuilder = ImmutableArray.CreateBuilder<PropertySymbol>();
+            ImmutableDictionary<MethodSymbol, BoundBlockStmt>.Builder methodsBuilder = ImmutableDictionary.CreateBuilder<MethodSymbol, BoundBlockStmt>();
             foreach (PropertyDecl propDecl in decl.Properties)
             {
-                Accessibility accessibility = propDecl.Accessibility?.Kind == NodeKind.Pub ? Accessibility.Pub : Accessibility.Priv;
+                Accessibility accessibility = propDecl.Attributes.Any(a => a.Token.Kind == NodeKind.Pub) ? Accessibility.Pub : Accessibility.Priv;
                 BoundExpr boundValue = BindExpr(propDecl.Value);
                 string propName = propDecl.Name.Lexeme;
                 TypeSymbol type = propDecl.TypeClause is null ? boundValue.Type : BindTypeClause(propDecl.TypeClause);
@@ -238,14 +233,17 @@ namespace Delta.Binding
                 if (boundValue.Type == TypeSymbol.Void)
                     _diagnostics.Report(propDecl.Value.Location, $"Value assigned to property '{propName}' cannot be of type 'void'.");
 
-                PropertySymbol prop = new(accessibility, propDecl.Name.Lexeme, type, propDecl.MutToken is not null, BindExpr(propDecl.Value));
-                properties.Add(prop);
+                PropertySymbol prop = new(new(propName, accessibility, propDecl.Attributes.Any(a => a.Token.Kind == NodeKind.Static)), propName, type, propDecl.MutToken is not null, BindExpr(propDecl.Value));
+                propertiesBuilder.Add(prop);
             }
 
             foreach (MethodDecl methodDecl in decl.Methods)
             {
-                Accessibility accessibility = methodDecl.Accessibility?.Kind == NodeKind.Pub ? Accessibility.Pub : Accessibility.Priv;
                 string methodName = methodDecl.Name.Lexeme;
+                if (methodsBuilder.Any(m => m.Key.Name == methodName))
+                    _diagnostics.Report(methodDecl.Name.Location, $"Method '{methodName}' is already declared.");
+
+                Accessibility accessibility = methodDecl.Attributes.Any(a => a.Token.Kind == NodeKind.Pub) ? Accessibility.Pub : Accessibility.Priv;
                 TypeSymbol retType = BindTypeClause(methodDecl.ReturnType, true);
                 ImmutableArray<ParamSymbol>.Builder parametersBuilder = ImmutableArray.CreateBuilder<ParamSymbol>();
                 if (methodDecl.Parameters is not null)
@@ -271,17 +269,17 @@ namespace Delta.Binding
                 binder = new(new(_scope), new(methodName, retType, parameters, null), classSymbol);
                 foreach (ParamSymbol param in parameters)
                     binder._scope.TryDeclareVar(param);
-                MethodSymbol method = new(accessibility, methodName, retType, parameters, methodDecl);
-                if (methods.Any(m => m.Name == methodName))
-                    _diagnostics.Report(methodDecl.Name.Location, $"Method '{methodName}' is already declared.");
-                else
-                    methods.Add(method);
-                binder.BindStmt(methodDecl.Body);
+                MethodSymbol method = new(new(methodName, accessibility, methodDecl.Attributes.Any(a => a.Token.Kind == NodeKind.Static)), methodName, retType, parameters, methodDecl);
+                BoundBlockStmt body = Lowerer.Lower(binder.BindStmt(methodDecl.Body));
+                if (method.ReturnType != TypeSymbol.Void && !ControlFlowGraph.AllPathsReturn(body))
+                    _diagnostics.Report(methodDecl.Name.Location, $"All code paths must return a value.");
+                methodsBuilder.Add(method, body);
             }
 
-            ClassSymbol symbol = new(name, ctor, properties.ToImmutable(), methods.ToImmutable(), decl);
-            if (!_scope.TryDeclareClass(symbol))
-                _diagnostics.Report(decl.Name.Location, $"Class '{name}' is already declared.");
+            ClassSymbol symbol = new(decl, name, ctor, propertiesBuilder.ToImmutable(), methodsBuilder.ToImmutable());
+            if (!_diagnostics.Any())
+                if (!_scope.TryDeclareClass(symbol))
+                    _diagnostics.Report(decl.Name.Location, $"Class '{name}' is already declared.");
         }
 
         public BoundStmt BindStmt(Stmt stmt) => stmt switch
@@ -544,66 +542,6 @@ namespace Delta.Binding
             return new BoundAssignExpr(variable, value);
         }
 
-        private BoundExpr BindGetExpr(GetExpr expr)
-        {
-            BoundExpr instance = BindExpr(expr.Instance);
-            if (!instance.Type.IsClass)
-            {
-                _diagnostics.Report(expr.Instance.Location, $"Class instance needed.");
-                return new BoundError();
-            }
-
-            string propName = expr.PropName.Lexeme;
-            ClassSymbol classSymbol = instance.Type.ClassSymbol!;
-            PropertySymbol? prop = classSymbol!.Properties.SingleOrDefault(p => p.Name == propName);
-            if (prop is null)
-            {
-                _diagnostics.Report(expr.PropName.Location, $"Class '{classSymbol.Name}' does not have property '{propName}'.");
-                return new BoundError();
-            }
-
-            if (_class != classSymbol && prop.Accessibility == Accessibility.Priv)
-                _diagnostics.Report(expr.Location, $"Cannot access private property '{propName}' of class '{classSymbol.Name}' in this context.");
-            return new BoundGetExpr(instance, prop);
-        }
-
-        private BoundExpr BindSetExpr(SetExpr expr)
-        {
-            BoundExpr instance = BindExpr(expr.Instance);
-            if (!instance.Type.IsClass)
-            {
-                _diagnostics.Report(expr.Instance.Location, $"Class instance needed.");
-                return new BoundError();
-            }
-
-            string propName = expr.PropName.Lexeme;
-            ClassSymbol classSymbol = instance.Type.ClassSymbol!;
-            PropertySymbol? prop = classSymbol!.Properties.SingleOrDefault(p => p.Name == propName);
-            if (prop is null)
-            {
-                _diagnostics.Report(expr.PropName.Location, $"Class '{classSymbol.Name}' does not have property '{propName}'.");
-                return new BoundError();
-            }
-
-            if (_class != classSymbol && prop.Accessibility == Accessibility.Priv)
-                _diagnostics.Report(expr.Location, $"Cannot access private property '{propName}' of class '{classSymbol.Name}' in this context.");
-
-            BoundExpr value = BindExpr(expr.Value);
-            if (!prop.Mutable)
-            {
-                _diagnostics.Report(expr.Location, $"Cannot reassign to constant property '{propName}'.");
-                return new BoundError();
-            }
-
-            if (prop.Type != value.Type)
-            {
-                _diagnostics.Report(expr.Value.Location, $"Cannot assign value of type '{value.Type}' to property '{propName}' of type '{prop.Type}'.");
-                return new BoundError();
-            }
-
-            return new BoundSetExpr(instance, prop, value);
-        }
-
         private BoundExpr BindCallExpr(CallExpr expr)
         {
             string name = expr.Name.Lexeme;
@@ -653,23 +591,125 @@ namespace Delta.Binding
             }
         }
 
+        private BoundExpr BindGetExpr(GetExpr expr)
+        {
+            BoundExpr? instance;
+            if (expr.Instance is NameExpr n && _scope.TryLookupClass(n.Name.Lexeme, out ClassSymbol? classSymbol))
+                instance = null;
+            else
+            {
+                instance = BindExpr(expr.Instance);
+                classSymbol = instance.Type.ClassSymbol;
+            }
+
+            if (classSymbol is null)
+            {
+                _diagnostics.Report(expr.Instance.Location, $"Either class instance or class name is needed.");
+                return new BoundError();
+            }
+
+            string propName = expr.PropName.Lexeme;
+            PropertySymbol? prop = classSymbol.Properties.SingleOrDefault(p => p.Name == propName);
+            if (prop is null)
+            {
+                _diagnostics.Report(expr.PropName.Location, $"Class '{classSymbol.Name}' does not have property '{propName}'.");
+                return new BoundError();
+            }
+
+            if (instance is null && !prop.Attributes.IsStatic)
+            {
+                _diagnostics.Report(expr.Location, $"Cannot access non-static property '{propName}' without instance.");
+                return new BoundError();
+            }
+
+            if (_class != classSymbol && prop.Attributes.Accessibility == Accessibility.Priv)
+                _diagnostics.Report(expr.Location, $"Cannot access private property '{propName}' of class '{classSymbol.Name}' in this context.");
+            return instance is null ? new BoundStaticGetExpr(classSymbol, prop) : new BoundGetExpr(instance, prop);
+        }
+
+        private BoundExpr BindSetExpr(SetExpr expr)
+        {
+            BoundExpr? instance;
+            if (expr.Instance is NameExpr n && _scope.TryLookupClass(n.Name.Lexeme, out ClassSymbol? classSymbol))
+                instance = null;
+            else
+            {
+                instance = BindExpr(expr.Instance);
+                classSymbol = instance.Type.ClassSymbol;
+            }
+
+            if (classSymbol is null)
+            {
+                _diagnostics.Report(expr.Instance.Location, $"Either class instance or class name is needed.");
+                return new BoundError();
+            }
+
+            string propName = expr.PropName.Lexeme;
+            PropertySymbol? prop = classSymbol.Properties.SingleOrDefault(p => p.Name == propName);
+            if (prop is null)
+            {
+                _diagnostics.Report(expr.PropName.Location, $"Class '{classSymbol.Name}' does not have property '{propName}'.");
+                return new BoundError();
+            }
+
+            if (instance is null && !prop.Attributes.IsStatic)
+            {
+                _diagnostics.Report(expr.Location, $"Cannot access non-static property '{propName}' without instance.");
+                return new BoundError();
+            }
+
+            if (_class != classSymbol && prop.Attributes.Accessibility == Accessibility.Priv)
+                _diagnostics.Report(expr.Location, $"Cannot access private property '{propName}' of class '{classSymbol.Name}' in this context.");
+
+            BoundExpr value = BindExpr(expr.Value);
+            if (!prop.Mutable)
+            {
+                _diagnostics.Report(expr.Location, $"Cannot reassign to constant property '{propName}'.");
+                return new BoundError();
+            }
+
+            if (prop.Type != value.Type)
+            {
+                _diagnostics.Report(expr.Value.Location, $"Cannot assign value of type '{value.Type}' to property '{propName}' of type '{prop.Type}'.");
+                return new BoundError();
+            }
+
+            return instance is null ? new BoundStaticSetExpr(classSymbol, prop, value) : new BoundSetExpr(instance, prop, value);
+        }
+
         private BoundExpr BindMethodExpr(MethodExpr expr)
         {
-            BoundExpr instance = BindExpr(expr.Instance);
-            if (!instance.Type.IsClass)
+            BoundExpr? instance;
+            if (expr.Instance is NameExpr n && _scope.TryLookupClass(n.Name.Lexeme, out ClassSymbol? classSymbol))
+                instance = null;
+            else
             {
-                _diagnostics.Report(expr.Instance.Location, $"Class instance needed.");
+                instance = BindExpr(expr.Instance);
+                classSymbol = instance.Type.ClassSymbol;
+            }
+
+            if (classSymbol is null)
+            {
+                _diagnostics.Report(expr.Instance.Location, $"Either class instance or class name is needed.");
                 return new BoundError();
             }
 
             string methodName = expr.PropName.Lexeme;
-            ClassSymbol classSymbol = instance.Type.ClassSymbol!;
             MethodSymbol? method = classSymbol!.Methods.SingleOrDefault(m => m.Name == methodName);
             if (method is null)
             {
                 _diagnostics.Report(expr.PropName.Location, $"Class '{classSymbol.Name}' does not have method '{methodName}'.");
                 return new BoundError();
             }
+
+            if (instance is null && !method.Attributes.IsStatic)
+            {
+                _diagnostics.Report(expr.Location, $"Cannot access non-static method '{methodName}' without instance.");
+                return new BoundError();
+            }
+
+            if (_class != classSymbol && method.Attributes.Accessibility == Accessibility.Priv)
+                _diagnostics.Report(expr.Location, $"Cannot access private property '{methodName}' of class '{classSymbol.Name}' in this context.");
 
             ImmutableArray<BoundExpr> args = [.. expr.Args.Select(a => BindExpr(a.Expr))];
             if (args.Length != method.Parameters.Length)
@@ -681,7 +721,7 @@ namespace Delta.Binding
             for (int i = 0; i < args.Length; i++)
                 if (args[i].Type != method.Parameters[i].Type)
                     _diagnostics.Report(expr.Args[i].Location, $"Argument '{method.Parameters[i].Name}' of method '{methodName}' must be of type '{method.Parameters[i].Type}', but got '{args[i].Type}'.");
-            return new BoundMethodExpr(instance, method, args);
+            return instance is null ? new BoundStaticMethodExpr(classSymbol, method, args) : new BoundMethodExpr(instance, method, args);
         }
 
         private TypeSymbol BindTypeClause(TypeClause typeClause, bool canBeVoid = false)

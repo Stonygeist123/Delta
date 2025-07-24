@@ -2,19 +2,31 @@
 
 namespace Delta.Analysis.Nodes
 {
-    internal class Arg(SyntaxTree syntaxTree, Token? comma, Expr arg) : Node(syntaxTree)
+    internal sealed class PropertyDecl(SyntaxTree syntaxTree, List<AttributeNode> attributes, Token? mutToken, Token name, TypeClause? typeClause, Token eqToken, Expr value, Token semicolon) : Node(syntaxTree)
     {
-        public Token? Comma = comma;
-        public Expr Expr = arg;
-        public override NodeKind Kind => NodeKind.Arg;
+        public List<AttributeNode> Attributes { get; } = attributes;
+        public Token? MutToken { get; } = mutToken;
+        public Token Name { get; } = name;
+        public TypeClause? TypeClause { get; } = typeClause;
+        public Token EqToken { get; } = eqToken;
+        public Expr Value { get; } = value;
+        public Token Semicolon { get; } = semicolon;
+        public override NodeKind Kind => NodeKind.PropertyDecl;
     }
 
-    internal class Param(SyntaxTree syntaxTree, Token? comma, Token name, TypeClause typeClause) : Node(syntaxTree)
+    internal sealed class MethodDecl(SyntaxTree syntaxTree, List<AttributeNode> attributes, Token keyword, Token name, ParameterList? parameters, TypeClause returnType, Stmt body) : FnDecl(syntaxTree, keyword, name, parameters, returnType, body)
     {
-        public Token? Comma { get; } = comma;
-        public Token Name { get; } = name;
-        public TypeClause TypeClause { get; } = typeClause;
-        public override NodeKind Kind => NodeKind.Param;
+        public List<AttributeNode> Attributes { get; } = attributes;
+        public override NodeKind Kind => NodeKind.MethodDecl;
+    }
+
+    internal sealed class CtorDecl(SyntaxTree syntaxTree, List<AttributeNode> attributes, Token keyword, ParameterList? parameters, Stmt body) : MemberNode(syntaxTree)
+    {
+        public List<AttributeNode> Attributes { get; } = attributes;
+        public Token Keyword { get; } = keyword;
+        public ParameterList? Parameters { get; } = parameters;
+        public Stmt Body { get; } = body;
+        public override NodeKind Kind => NodeKind.CtorDecl;
     }
 
     internal class ParameterList(SyntaxTree syntaxTree, Token lParen, List<Param> paramList, Token rParen) : Node(syntaxTree)
@@ -25,38 +37,32 @@ namespace Delta.Analysis.Nodes
         public override NodeKind Kind => NodeKind.ParameterList;
     }
 
-    internal sealed class PropertyDecl(SyntaxTree syntaxTree, Token? accessibility, Token? mutToken, Token name, TypeClause? typeClause, Token eqToken, Expr value, Token semicolon) : Node(syntaxTree)
+    internal class Param(SyntaxTree syntaxTree, Token? comma, Token name, TypeClause typeClause) : Node(syntaxTree)
     {
-        public Token? Accessibility { get; } = accessibility;
-        public Token? MutToken { get; } = mutToken;
+        public Token? Comma { get; } = comma;
         public Token Name { get; } = name;
-        public TypeClause? TypeClause { get; } = typeClause;
-        public Token EqToken { get; } = eqToken;
-        public Expr Value { get; } = value;
-        public Token Semicolon { get; } = semicolon;
-        public override NodeKind Kind => NodeKind.PropertyDecl;
+        public TypeClause TypeClause { get; } = typeClause;
+        public override NodeKind Kind => NodeKind.Param;
     }
 
-    internal sealed class MethodDecl(SyntaxTree syntaxTree, Token? accessibility, Token keyword, Token name, ParameterList? parameters, TypeClause returnType, Stmt body) : FnDecl(syntaxTree, keyword, name, parameters, returnType, body)
+    internal class Arg(SyntaxTree syntaxTree, Token? comma, Expr arg) : Node(syntaxTree)
     {
-        public Token? Accessibility { get; } = accessibility;
-        public override NodeKind Kind => NodeKind.MethodDecl;
+        public Token? Comma = comma;
+        public Expr Expr = arg;
+        public override NodeKind Kind => NodeKind.Arg;
     }
 
-    internal sealed class CtorDecl(SyntaxTree syntaxTree, Token? accessibility, Token keyword, ParameterList? parameters, Stmt body) : MemberNode(syntaxTree)
-    {
-        public Token? Accessibility { get; } = accessibility;
-        public Token Keyword { get; } = keyword;
-        public ParameterList? Parameters { get; } = parameters;
-        public Stmt Body { get; } = body;
-        public override NodeKind Kind => NodeKind.MethodDecl;
-    }
-
-    internal class TypeClause(SyntaxTree syntaxTree, Token mark, Token type) : Node(syntaxTree)
+    internal sealed class TypeClause(SyntaxTree syntaxTree, Token mark, Token type) : Node(syntaxTree)
     {
         public Token Mark { get; } = mark;
         public Token Name { get; } = type;
         public override NodeKind Kind => NodeKind.TypeClause;
+    }
+
+    internal sealed class AttributeNode(SyntaxTree syntaxTree, Token token) : Node(syntaxTree)
+    {
+        public Token Token { get; } = token;
+        public override NodeKind Kind => NodeKind.AttributeNode;
     }
 
     internal sealed class CompilationUnit(SyntaxTree syntaxTree, ImmutableArray<MemberNode> members, Token eofToken) : Node(syntaxTree)

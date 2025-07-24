@@ -48,23 +48,6 @@ namespace Delta.Binding.BoundNodes
         public override TypeSymbol Type => Value.Type;
     }
 
-    internal sealed class BoundGetExpr(BoundExpr instance, PropertySymbol property) : BoundExpr
-    {
-        public BoundExpr Instance { get; } = instance;
-        public ClassSymbol ClassSymbol => Instance.Type.ClassSymbol!;
-        public PropertySymbol Property { get; } = property;
-        public override TypeSymbol Type => Property.Type;
-    }
-
-    internal sealed class BoundSetExpr(BoundExpr instance, PropertySymbol property, BoundExpr value) : BoundExpr
-    {
-        public BoundExpr Instance { get; } = instance;
-        public ClassSymbol ClassSymbol => Instance.Type.ClassSymbol!;
-        public PropertySymbol Property { get; } = property;
-        public BoundExpr Value { get; } = value;
-        public override TypeSymbol Type => Value.Type;
-    }
-
     internal sealed class BoundCallExpr(FnSymbol fn, ImmutableArray<BoundExpr> Args) : BoundExpr
     {
         public FnSymbol Fn { get; } = fn;
@@ -72,9 +55,47 @@ namespace Delta.Binding.BoundNodes
         public override TypeSymbol Type => Fn.ReturnType;
     }
 
+    internal sealed class BoundGetExpr(BoundExpr instance, PropertySymbol property) : BoundExpr
+    {
+        public BoundExpr Instance { get; } = instance;
+        public PropertySymbol Property { get; } = property;
+        public override TypeSymbol Type => Property.Type;
+    }
+
+    internal sealed class BoundSetExpr(BoundExpr instance, PropertySymbol property, BoundExpr value) : BoundExpr
+    {
+        public BoundExpr Instance { get; } = instance;
+        public PropertySymbol Property { get; } = property;
+        public BoundExpr Value { get; } = value;
+        public override TypeSymbol Type => Value.Type;
+    }
+
     internal sealed class BoundMethodExpr(BoundExpr instance, MethodSymbol method, ImmutableArray<BoundExpr> Args) : BoundExpr
     {
         public BoundExpr Instance { get; } = instance;
+        public MethodSymbol Method { get; } = method;
+        public ImmutableArray<BoundExpr> Args { get; } = Args;
+        public override TypeSymbol Type => Method.ReturnType;
+    }
+
+    internal sealed class BoundStaticGetExpr(ClassSymbol classSymbol, PropertySymbol property) : BoundExpr
+    {
+        public ClassSymbol ClassSymbol => classSymbol;
+        public PropertySymbol Property { get; } = property;
+        public override TypeSymbol Type => Property.Type;
+    }
+
+    internal sealed class BoundStaticSetExpr(ClassSymbol classSymbol, PropertySymbol property, BoundExpr value) : BoundExpr
+    {
+        public ClassSymbol ClassSymbol => classSymbol;
+        public PropertySymbol Property { get; } = property;
+        public BoundExpr Value { get; } = value;
+        public override TypeSymbol Type => Value.Type;
+    }
+
+    internal sealed class BoundStaticMethodExpr(ClassSymbol classSymbol, MethodSymbol method, ImmutableArray<BoundExpr> Args) : BoundExpr
+    {
+        public ClassSymbol ClassSymbol { get; } = classSymbol;
         public MethodSymbol Method { get; } = method;
         public ImmutableArray<BoundExpr> Args { get; } = Args;
         public override TypeSymbol Type => Method.ReturnType;

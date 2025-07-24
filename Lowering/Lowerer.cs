@@ -4,7 +4,7 @@ using Delta.Binding.BoundNodes;
 using Delta.Symbols;
 using System.Collections.Immutable;
 
-namespace Delta.Lowerering
+namespace Delta.Lowering
 {
     internal sealed class Lowerer : BoundTreeRewriter
     {

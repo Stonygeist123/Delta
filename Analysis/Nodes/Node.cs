@@ -13,7 +13,7 @@ namespace Delta.Analysis.Nodes
         Number, String, Identifier,
 
         // Keywords
-        Var, Mut, True, False, If, Else, Loop, For, Fn, Class, Ret, Break, Continue, Step, Pub, Priv,
+        Var, Mut, True, False, If, Else, Loop, For, Fn, Class, Ret, Break, Continue, Step, Pub, Priv, Static,
 
         // Others
         LParen, RParen, LBrace, RBrace, Comma, Eq, Colon, Arrow, Semicolon, Dot,
@@ -21,7 +21,7 @@ namespace Delta.Analysis.Nodes
         Space, Bad, EOF,
 
         // Misc
-        ParameterList, Param, Arg, TypeClause, CompilationUnit,
+        PropertyDecl, MethodDecl, CtorDecl, ParameterList, Param, Arg, TypeClause, AttributeNode, CompilationUnit,
 
         // Exprs
         LiteralExpr, BinaryExpr, UnaryExpr, GroupingExpr, NameExpr, AssignExpr, GetExpr, SetExpr, CallExpr, ErrorExpr,
@@ -29,7 +29,7 @@ namespace Delta.Analysis.Nodes
         // Stmts
         ExprStmt, VarStmt, BlockStmt, IfStmt, ElseStmt, LoopStmt, ForStmt, RetStmt, BreakStmt, ContinueStmt, ErrorStmt,
 
-        FnDecl, ClassDecl, MethodDecl, PropertyDecl
+        FnDecl, ClassDecl
     }
 
     internal abstract class Node(SyntaxTree syntaxTree)

@@ -71,6 +71,7 @@ namespace Delta.Analysis
             NodeKind.Step => "step",
             NodeKind.Pub => "pub",
             NodeKind.Priv => "priv",
+            NodeKind.Static => "static",
             _ => null,
         };
 
@@ -92,6 +93,7 @@ namespace Delta.Analysis
             { "step", NodeKind.Step },
             { "pub", NodeKind.Pub },
             { "priv", NodeKind.Priv },
+            { "static", NodeKind.Static },
         };
     }
 

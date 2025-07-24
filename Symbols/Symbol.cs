@@ -49,30 +49,39 @@ namespace Delta.Symbols
         Pub, Priv
     }
 
-    internal sealed class PropertySymbol(Accessibility accessibility, string name, TypeSymbol type, bool mutable, BoundExpr value) : VarSymbol(name, type, mutable)
+    internal sealed class AttributesSymbol(string name, Accessibility accessibility, bool isStatic) : Symbol(name)
     {
         public Accessibility Accessibility { get; } = accessibility;
-        public BoundExpr Value { get; } = value;
+        public bool IsStatic { get; } = isStatic;
     }
 
-    internal sealed class MethodSymbol(Accessibility accessibility, string name, TypeSymbol returnType, ImmutableArray<ParamSymbol> parameters, MethodDecl? decl = null) : FnSymbol(name, returnType, parameters)
+    internal sealed class PropertySymbol(AttributesSymbol attributes, string name, TypeSymbol type, bool mutable, BoundExpr value) : VarSymbol(name, type, mutable)
     {
-        public Accessibility Accessibility { get; } = accessibility;
+        public AttributesSymbol Attributes { get; } = attributes;
+        public BoundExpr Value { get; set; } = value;
+    }
+
+    internal sealed class MethodSymbol(AttributesSymbol attributes, string name, TypeSymbol returnType, ImmutableArray<ParamSymbol> parameters, MethodDecl? decl = null) : FnSymbol(name, returnType, parameters)
+    {
+        public AttributesSymbol Attributes { get; } = attributes;
         public new MethodDecl? Decl { get; } = decl;
     }
 
-    internal sealed class CtorSymbol(Accessibility accessibility, string className, ImmutableArray<ParamSymbol> parameters, CtorDecl? decl = null) : Symbol(className)
+    internal sealed class CtorSymbol(AttributesSymbol attributes, string className, ImmutableArray<ParamSymbol> parameters, CtorDecl? decl = null) : Symbol(className)
     {
-        public Accessibility Accessibility { get; } = accessibility;
+        public AttributesSymbol Attributes { get; } = attributes;
         public ImmutableArray<ParamSymbol> Parameters { get; } = parameters;
         public CtorDecl? Decl { get; } = decl;
     }
 
-    internal sealed class ClassSymbol(string name, CtorSymbol? ctor, ImmutableArray<PropertySymbol> properties, ImmutableArray<MethodSymbol> methods, ClassDecl decl) : Symbol(name)
+    internal sealed class ClassSymbol(ClassDecl decl, string name, CtorSymbol? ctor,
+        ImmutableArray<PropertySymbol> properties,
+        ImmutableDictionary<MethodSymbol, BoundBlockStmt> methodsWithBody) : Symbol(name)
     {
         public CtorSymbol? Ctor { get; } = ctor;
         public ImmutableArray<PropertySymbol> Properties { get; } = properties;
-        public ImmutableArray<MethodSymbol> Methods { get; } = methods;
+        public ImmutableArray<MethodSymbol> Methods => [.. MethodsWithBody.Keys];
+        public ImmutableDictionary<MethodSymbol, BoundBlockStmt> MethodsWithBody { get; } = methodsWithBody;
         public ClassDecl Decl { get; } = decl;
     }
 

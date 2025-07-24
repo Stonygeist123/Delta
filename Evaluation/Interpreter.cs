@@ -153,7 +153,7 @@ namespace Delta.Evaluation
                     VarSymbol symbol = ((BoundNameExpr)expr).Variable;
                     string name = symbol.Name;
                     if (symbol is PropertySymbol p)
-                        return _instance!.Properties[p];
+                        return _instance!.Properties.Single(prop => prop.Key.Name == p.Name).Value;
                     return (symbol is GlobalVarSymbol ? _globals : _locals.Peek()).Single(v => v.Key.Name == name).Value;
                 }
 
@@ -162,30 +162,17 @@ namespace Delta.Evaluation
                     VarSymbol symbol = ((BoundAssignExpr)expr).Variable;
                     string name = symbol.Name;
                     object value = ExecuteExpr(((BoundAssignExpr)expr).Value) ?? throw new Exception($"Value to assign to variable '{name}' has no value.");
-                    if (symbol is PropertySymbol p)
-                        return _instance!.Properties[p] = value;
-                    return (symbol is GlobalVarSymbol
-                            ? _globals
-                            : _locals.Peek())[symbol] = value;
-                }
-
-                case BoundGetExpr:
-                {
-                    BoundExpr instanceExpr = ((BoundGetExpr)expr).Instance;
-                    ClassSymbol classSymbol = ((BoundGetExpr)expr).ClassSymbol;
-                    PropertySymbol property = ((BoundGetExpr)expr).Property;
-                    ClassInstance instance = (ClassInstance)ExecuteExpr(instanceExpr)!;
-                    return instance.Properties[property];
-                }
-
-                case BoundSetExpr:
-                {
-                    BoundExpr instanceExpr = ((BoundSetExpr)expr).Instance;
-                    ClassSymbol classSymbol = ((BoundSetExpr)expr).ClassSymbol;
-                    PropertySymbol property = ((BoundSetExpr)expr).Property;
-                    ClassInstance instance = (ClassInstance)ExecuteExpr(instanceExpr)!;
-                    object value = ExecuteExpr(((BoundSetExpr)expr).Value) ?? throw new Exception($"Value to assign to property '{property.Name}' has no value.");
-                    return instance.Properties[property] = value;
+                    if (symbol is PropertySymbol prop)
+                    {
+                        foreach (PropertySymbol p in _instance!.Properties.Keys)
+                            if (p.Name == prop.Name)
+                                return _instance!.Properties[p] = value;
+                        throw new Exception();
+                    }
+                    else
+                        return (symbol is GlobalVarSymbol
+                             ? _globals
+                             : _locals.Peek())[symbol] = value;
                 }
 
                 case BoundCallExpr:
@@ -205,7 +192,7 @@ namespace Delta.Evaluation
                         }
 
                         _locals.Push(locals);
-                        result = ExecuteStmt(_instance!.Data.Methods[m]);
+                        result = ExecuteStmt(_instance!.Data.Methods.Single(method => method.Key.Name == m.Name).Value);
                     }
                     else
                     {
@@ -223,6 +210,23 @@ namespace Delta.Evaluation
                     return result;
                 }
 
+                case BoundGetExpr:
+                {
+                    BoundExpr instanceExpr = ((BoundGetExpr)expr).Instance;
+                    PropertySymbol property = ((BoundGetExpr)expr).Property;
+                    ClassInstance instance = (ClassInstance)ExecuteExpr(instanceExpr)!;
+                    return instance.Properties[property];
+                }
+
+                case BoundSetExpr:
+                {
+                    BoundExpr instanceExpr = ((BoundSetExpr)expr).Instance;
+                    PropertySymbol property = ((BoundSetExpr)expr).Property;
+                    ClassInstance instance = (ClassInstance)ExecuteExpr(instanceExpr)!;
+                    object value = ExecuteExpr(((BoundSetExpr)expr).Value) ?? throw new Exception($"Value to assign to property '{property.Name}' has no value.");
+                    return instance.Properties[property] = value;
+                }
+
                 case BoundMethodExpr:
                 {
                     ClassInstance instance = (ClassInstance)ExecuteExpr(((BoundMethodExpr)expr).Instance)!;
@@ -237,9 +241,47 @@ namespace Delta.Evaluation
                     }
 
                     _locals.Push(locals);
+                    ClassInstance? instanceBefore = _instance;
                     _instance = instance;
                     result = ExecuteStmt(instance.Data.Methods[methodSymbol]);
-                    _instance = null;
+                    _instance = instanceBefore;
+                    return result;
+                }
+
+                case BoundStaticGetExpr:
+                {
+                    PropertySymbol property = ((BoundStaticGetExpr)expr).Property;
+                    return ExecuteExpr(property.Value)!;
+                }
+
+                case BoundStaticSetExpr:
+                {
+                    ClassSymbol classSymbol = ((BoundStaticSetExpr)expr).ClassSymbol;
+                    PropertySymbol property = ((BoundStaticSetExpr)expr).Property;
+                    object value = ExecuteExpr(((BoundStaticSetExpr)expr).Value) ?? throw new Exception($"Value to assign to property '{property.Name}' has no value.");
+                    _classes[classSymbol].Properties[classSymbol.Properties.IndexOf(property)].Value = ((BoundStaticSetExpr)expr).Value;
+                    return value;
+                }
+
+                case BoundStaticMethodExpr:
+                {
+                    ClassSymbol classSymbol = ((BoundStaticMethodExpr)expr).ClassSymbol;
+                    MethodSymbol methodSymbol = ((BoundStaticMethodExpr)expr).Method;
+                    object? result = null;
+                    List<object?> args = [.. ((BoundStaticMethodExpr)expr).Args.Select(ExecuteExpr)];
+                    Dictionary<VarSymbol, object?> locals = [];
+                    for (int i = 0; i < args.Count; i++)
+                    {
+                        ParamSymbol parameter = methodSymbol.Parameters[i];
+                        locals.Add(parameter, args[i]);
+                    }
+
+                    _locals.Push(locals);
+                    ClassInstance? instanceBefore = _instance;
+                    Dictionary<PropertySymbol, object?> props = _classes[classSymbol].Properties.Select(p => new KeyValuePair<PropertySymbol, object?>(p, ExecuteExpr(p.Value))).ToDictionary();
+                    _instance = new StaticClassInstance(classSymbol, props);
+                    result = ExecuteStmt(classSymbol.MethodsWithBody![methodSymbol]);
+                    _instance = instanceBefore;
                     return result;
                 }
 

@@ -56,10 +56,11 @@ namespace Delta.Analysis
             return members.ToImmutable();
         }
 
-        private MemberNode ParseFnDecl(bool inClass = false, Token? accessibility = null)
+        private MemberNode ParseFnDecl(List<AttributeNode>? attributes = null)
         {
             Token keyword = Advance();
             Token? name = Current;
+            bool inClass = attributes is not null;
             if (inClass)
             {
                 if (name.Kind != NodeKind.Identifier)
@@ -103,6 +104,8 @@ namespace Delta.Analysis
             TypeClause? returnType = null;
             if (name is not null)
                 returnType = ParseTypeClause(NodeKind.Arrow);
+            else if (Current.Kind == NodeKind.Arrow)
+                _diagnostics.Report(Current.Location, $"Constructor cannot have return type.");
             Stmt ParseExprStmt()
             {
                 Expr expr = ParseExpr();
@@ -118,7 +121,7 @@ namespace Delta.Analysis
 
             Stmt body = Current.Kind == NodeKind.LBrace ? ParseBlockStmt() : ParseExprStmt();
             if (inClass)
-                return name is null ? new CtorDecl(_syntaxTree, accessibility, keyword, parameters, body) : new MethodDecl(_syntaxTree, accessibility, keyword, name, parameters, returnType!, body);
+                return name is null ? new CtorDecl(_syntaxTree, attributes!, keyword, parameters, body) : new MethodDecl(_syntaxTree, attributes!, keyword, name, parameters, returnType!, body);
             else
                 return new FnDecl(_syntaxTree, keyword, name!, parameters, returnType!, body);
         }
@@ -138,11 +141,12 @@ namespace Delta.Analysis
             CtorDecl? ctorDecl = null;
             while (Current.Kind != NodeKind.RBrace && !IsAtEnd())
             {
-                Token? accessibility = Current;
-                if (accessibility.Kind == NodeKind.Pub || accessibility.Kind == NodeKind.Priv)
-                    ++_current;
-                else
-                    accessibility = null;
+                List<AttributeNode> attributes = [];
+                while (Current.Kind == NodeKind.Pub || Current.Kind == NodeKind.Priv || Current.Kind == NodeKind.Static)
+                    attributes.Add(new(_syntaxTree, Advance()));
+
+                if (attributes.Any(a => a.Kind == NodeKind.Pub) && attributes.Any(a => a.Kind == NodeKind.Priv))
+                    _diagnostics.Report(new(_syntaxTree.Source, TextSpan.From(attributes.First().Span.Start, attributes.Last().Span.End)), $"Class member cannot have multiple accessibility attributes.");
 
                 Token? mutToken = Current;
                 if (mutToken.Kind == NodeKind.Mut)
@@ -152,7 +156,7 @@ namespace Delta.Analysis
 
                 if (Current.Kind == NodeKind.Fn)
                 {
-                    MemberNode member = ParseFnDecl(true, accessibility);
+                    MemberNode member = ParseFnDecl(attributes);
                     if (member is MethodDecl method)
                         methods.Add(method);
                     else if (member is CtorDecl)
@@ -174,7 +178,7 @@ namespace Delta.Analysis
                     if (semicolon.Kind != NodeKind.Semicolon)
                         _diagnostics.Report(semicolon.Location, $"Expected ';' after property declaration.");
 
-                    PropertyDecl property = new(_syntaxTree, accessibility, mutToken, varName, typeClause, eqToken, value, semicolon);
+                    PropertyDecl property = new(_syntaxTree, attributes, mutToken, varName, typeClause, eqToken, value, semicolon);
                     properties.Add(property);
                 }
                 else
